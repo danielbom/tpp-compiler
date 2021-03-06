@@ -1,0 +1,20 @@
+se 0 então fim
+
+None
+
+se 0 então senão fim
+
+None
+
+se 0 então senão se fim
+
+None
+
+se 0 então senão se fim
+
+None
+
+se 0 então senão se senão fim
+
+None
+
