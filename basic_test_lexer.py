@@ -1,5 +1,5 @@
 import sys
-from Lexer import Lexer
+from tpp.Lexer import Lexer
 
 DEFAULT_FILENAME = "./tpp-codes/test.tpp"
 

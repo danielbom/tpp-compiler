@@ -1,4 +1,5 @@
 from ply.lex import lex
+import sys
 
 
 class Lexer:
@@ -48,9 +49,9 @@ class Lexer:
         "OU_LOGICO",
     ] + list(keywords.values())
 
-    t_NUMERO_INTEIRO = r"[+\-]?(0|[1-9]\d*)"
-    t_NUMERO_FLUTUANTE = r"[+\-]?(0|[1-9]\d*)\.\d+"
-    t_NUMERO_CIENTIFICO = r"[+\-]?(0|[1-9]\d*)(\.\d+)?[eE][\+\-]?\d+"
+    t_NUMERO_INTEIRO = r"[+-]?(0|[1-9]\d*)"
+    t_NUMERO_FLUTUANTE = r"[+-]?(0|[1-9]\d*)\.\d+"
+    t_NUMERO_CIENTIFICO = r"[+-]?(0|[1-9]\d*)(\.\d+)?[eE][+-]?\d+"
     t_CARACTERES = r"\"(\\\"|[^\"])*\""
     t_ADICAO = r"\+"
     t_SUBTRACAO = r"\-"
@@ -98,24 +99,34 @@ class Lexer:
     def __init__(self):
         self.lexer = lex(module=self)
 
-    def tokenize(
-        self, text: str = None, filename: str = None, executor=None):
-        if executor is None:
-            executor = print
-
-        if filename:
-            with open(filename) as file:
-                text = file.read()
-
-        if not text:
-            print("You must pass a text or a filename!")
-            return
-
+    def tokenize(self, text: str):
         self.lexer.input(text)
 
-        # Tokenize
         while True:
             tok = self.lexer.token()
             if not tok:
                 break
-            executor(tok)
+            yield tok
+
+def main():
+    if len(sys.argv) != 2:
+        print("You must pass a filename as argument")
+        print("python3 Lexer.py <filename>")
+        return
+
+    filename = sys.argv[1]
+    try:
+        with open(filename, encoding="utf-8") as file:
+            text = file.read()
+    except:
+        print("You must pass a valid filename as argument")
+        print("python3 Lexer.py <filename>")
+        return
+
+    print("{:^6} {:^9} {:^20} {}".format("Linha", "Posição", "Tipo", "Valor"))
+    for tok in Lexer().tokenize(text):
+        print(tok)
+
+
+if __name__ == "__main__":
+    main()
