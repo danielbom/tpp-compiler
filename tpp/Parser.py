@@ -38,8 +38,17 @@ class Parser:
     # === root ===
     def p_root(self, p):
         '''root : declaracao_de_funcao
-                | declaracao_de_variavel '''
+                | declaracao_de_variavel
+                | declaracao_se'''
         p[0] = p[1]
+    
+    def p_declaracao_se(self, p):
+        'declaracao_se : SE expressao ENTAO FIM'
+        p[0] = Tree('declaracao_se', [p[2]])
+
+    def p_declaracao_se(self, p):
+        'declaracao_se : SE expressao ENTAO declaracoes FIM'
+        p[0] = Tree('declaracao_se', [p[2], p[4]])
 
     # === declaracao de funcao ===
     def p_declaracao_de_funcao(self, p):
@@ -48,13 +57,14 @@ class Parser:
         p[0] = Tree('declaracao_de_funcao', [p[1]])
 
     def p_declaracao_de_funcao1(self, p):
-        '''declaracao_de_funcao : cabecalho_de_funcao_com_retorno corpo_funcao FIM
-                                | cabecalho_de_funcao corpo_funcao FIM'''
+        '''declaracao_de_funcao : cabecalho_de_funcao_com_retorno declaracoes FIM
+                                | cabecalho_de_funcao declaracoes FIM'''
         p[0] = Tree('declaracao_de_funcao', [p[1], p[2]])
 
-    def p_corpo_funcao(self, p):
-        'corpo_funcao : numero'
-        p[0] = Tree('corpo_funcao', [p[1]])
+    # === declaracões ===
+    def p_declaracoes(self, p):
+        'declaracoes : numero'
+        p[0] = Tree('declaracoes', [p[1]])
 
     # === cabecalho de funcao (0 ou mais parametros) ===
     def p_cabecalho_de_funcao_com_retorno(self, p):
@@ -109,26 +119,34 @@ class Parser:
     def p_id(self, p):
         'id : ID'
         p[0] = Tree('id', value=p[1])
+    
+    def p_pointer(self, p):
+        'pointer : COLCHETE_DIR COLCHETE_ESQ'
+        p[0] = Tree('pointer')
+    
+    def p_pointer1(self, p):
+        'pointer : COLCHETE_DIR numero_inteiro COLCHETE_ESQ'
+        p[0] = p[2]
+
+    def p_id_multi_pointer(self, p):
+        'id_pointer : id_pointer pointer'
+        p[0] = Tree('id_pointer', [*p[1].children, p[2]], p[1].value)
 
     def p_id_pointer(self, p):
-        'id_pointer : ID COLCHETE_DIR COLCHETE_ESQ'
-        p[0] = Tree('id_pointer', value=p[1])
-
-    def p_id_array(self, p):
-        'id_array : ID COLCHETE_DIR numero_inteiro COLCHETE_ESQ'
-        p[0] = Tree('id_array', [p[3]], p[1])
+        'id_pointer : ID pointer'
+        p[0] = Tree('id_pointer', [p[2]], p[1])
 
     # === atribuicao ===
     def p_atribuicao(self, p):
-        '''atribuicao : id_pointer ATRIBUICAO expressao
-                      | id ATRIBUICAO expressao
-        '''
+        'atribuicao : lista_variaveis_terminal ATRIBUICAO expressao'
+        # '''atribuicao : id_pointer ATRIBUICAO expressao
+        #               | id ATRIBUICAO expressao
+        # '''
         p[0] = Tree('atribuicao', [p[1], p[3]])
 
     # === lista de variaveis ===
     def p_lista_variaveis_terminal(self, p):
         '''lista_variaveis_terminal : id_pointer
-                                    | id_array
                                     | id
         '''
         p[0] = p[1]
@@ -157,6 +175,9 @@ class Parser:
     def p_expressao(self, p):
         'expressao : numero'
         p[0] = Tree('expressao', [p[1]])
+
+    def p_error(self, p):
+        print(p.__dict__)
 
     def parse(self, text: str):
         return self.parser.parse(text)

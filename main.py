@@ -18,6 +18,17 @@ samples_declaration_variable = [
   "inteiro: x[100]",
 ]
 
+samples_multidimensional_array = [
+  "inteiro: var[10]",
+  "inteiro: var[10][100]",
+  "inteiro: var[10][100][1000]",
+  "inteiro: var[]",
+  "inteiro: var[][]",
+  "inteiro: var[][100]",
+  "inteiro: var[100][]",
+  "inteiro: var[][100][]",
+]
+
 samples_declaration_function = [
   "principal() fim",
   "inteiro: principal() fim"
@@ -25,10 +36,10 @@ samples_declaration_function = [
 
 samples_if = [
   "se 0 então fim",
-  "se 0 então senão fim",
-  "se 0 então senão se fim",
-  "se 0 então senão se fim",
-  "se 0 então senão se senão fim",
+  # "se 0 então senão fim",
+  # "se 0 então senão se fim",
+  # "se 0 então senão se fim",
+  # "se 0 então senão se senão fim",
 ]
 
 samples = samples_if
