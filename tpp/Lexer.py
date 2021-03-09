@@ -11,6 +11,7 @@ class Lexer:
         "então": "ENTAO",
         "senão": "SENAO",
         "repita": "REPITA",
+        "até": "ATE",
         "fim": "FIM",
         "retorna": "RETORNA",
         "leia": "LEIA",
@@ -50,7 +51,7 @@ class Lexer:
     ] + list(keywords.values())
 
     t_NUMERO_INTEIRO = r"[+-]?(0|[1-9]\d*)"
-    t_NUMERO_FLUTUANTE = r"[+-]?(0|[1-9]\d*)\.\d+"
+    t_NUMERO_FLUTUANTE = r"[+-]?(0|[1-9]\d*)\.\d*"
     t_NUMERO_CIENTIFICO = r"[+-]?(0|[1-9]\d*)(\.\d+)?[eE][+-]?\d+"
     t_CARACTERES = r"\"(\\\"|[^\"])*\""
     t_ADICAO = r"\+"
