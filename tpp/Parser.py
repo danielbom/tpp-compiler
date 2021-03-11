@@ -35,20 +35,92 @@ class Parser:
         self.tokens = lexer.tokens
         self.parser = yacc(module=self)
 
+    def extract_identifier(self, node, identifier):
+        return node.children if node.identifier == identifier else [node]
+
     # === root ===
     def p_root(self, p):
-        '''root : declaracao_de_funcao
-                | declaracao_de_variavel
-                | declaracao_se'''
+        '''root : expressao_matematica'''
         p[0] = p[1]
-    
-    def p_declaracao_se(self, p):
-        'declaracao_se : SE expressao ENTAO FIM'
-        p[0] = Tree('declaracao_se', [p[2]])
 
-    def p_declaracao_se(self, p):
-        'declaracao_se : SE expressao ENTAO declaracoes FIM'
-        p[0] = Tree('declaracao_se', [p[2], p[4]])
+    # === expressao matematica ===
+    def p_expressao_matematica(self, p):
+        'expressao_matematica : soma'
+        p[0] = p[1]
+
+    # === soma ===
+    def p_soma(self, p):
+        '''soma : produto adiciona_ou_subtrai'''
+        cs = self.extract_identifier(p[2], 'adiciona_ou_subtrai')
+        p[0] = Tree('soma', [p[1], *cs])
+
+    def p_soma1(self, p):
+        'soma : produto'
+        p[0] = p[1]
+
+    def p_adiciona_ou_subtrai(self, p):
+        'adiciona_ou_subtrai : adiciona_ou_subtrai adiciona_ou_subtrai_terminal'
+        cs = self.extract_identifier(p[1], 'adiciona_ou_subtrai')
+        p[0] = Tree('adiciona_ou_subtrai', [*cs, p[2]])
+
+    def p_adiciona_ou_subtrai1(self, p):
+        'adiciona_ou_subtrai : adiciona_ou_subtrai_terminal'
+        p[0] = Tree('adiciona_ou_subtrai', [p[1]])
+
+    def p_adiciona_ou_subtrai_terminal(self, p):
+        'adiciona_ou_subtrai_terminal : SUBTRACAO produto'
+        p[0] = Tree('subtracao', [p[2]])
+
+    def p_adiciona_ou_subtrai_terminal1(self, p):
+        'adiciona_ou_subtrai_terminal : ADICAO produto'
+        p[0] = Tree('adicionar', [p[2]])
+
+    # === produto ===
+    def p_produto(self, p):
+        'produto : primario multiplica_ou_divide'
+        cs = self.extract_identifier(p[2], 'multiplica_ou_divide')
+        p[0] = Tree('produto', [p[1], *cs])
+
+    def p_produto1(self, p):
+        'produto : primario'
+        p[0] = p[1]
+
+    def p_multiplica_ou_divide(self, p):
+        'multiplica_ou_divide : multiplica_ou_divide multiplica_ou_divide_terminal'
+        cs = self.extract_identifier(p[1], 'multiplica_ou_divide')
+        p[0] = Tree('multiplica_ou_divide', [*cs, p[2]])
+
+    def p_multiplica_ou_divide1(self, p):
+        'multiplica_ou_divide : multiplica_ou_divide_terminal'
+        p[0] = Tree('multiplica_ou_divide', [p[1]])
+
+    def p_multiplica_ou_divide_terminal(self, p):
+        'multiplica_ou_divide_terminal : MULTIPLICACAO primario'
+        p[0] = Tree('multiplicar', [p[2]])
+
+    def p_multiplica_ou_divide_terminal1(self, p):
+        'multiplica_ou_divide_terminal : DIVISAO primario'
+        p[0] = Tree('dividir', [p[2]])
+
+    # === expressao unaria ===
+    def p_expressao_unaria(self, p):
+        'expressao_unaria : ADICAO primario'
+        p[0] = Tree('adicao_unaria', [p[2]])
+
+    def p_expressao_unaria1(self, p):
+        'expressao_unaria : SUBTRACAO primario'
+        p[0] = Tree('subtracao_unaria', [p[2]])
+
+    # === primario ===
+    def p_primario(self, p):
+        'primario : PARENTESES_DIR expressao_matematica PARENTESES_ESQ'
+        p[0] = p[2]
+
+    def p_primario1(self, p):
+        '''primario : numero
+                    | id
+                    | expressao_unaria'''
+        p[0] = p[1]
 
     # === declaracao de funcao ===
     def p_declaracao_de_funcao(self, p):
@@ -177,7 +249,7 @@ class Parser:
         p[0] = Tree('expressao', [p[1]])
 
     def p_error(self, p):
-        print(p.__dict__)
+        print("ERROR:", p.__dict__ if p else p)
 
     def parse(self, text: str):
         return self.parser.parse(text)

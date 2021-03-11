@@ -50,9 +50,9 @@ class Lexer:
         "OU_LOGICO",
     ] + list(keywords.values())
 
-    t_NUMERO_INTEIRO = r"[+-]?(0|[1-9]\d*)"
-    t_NUMERO_FLUTUANTE = r"[+-]?(0|[1-9]\d*)\.\d*"
-    t_NUMERO_CIENTIFICO = r"[+-]?(0|[1-9]\d*)(\.\d+)?[eE][+-]?\d+"
+    t_NUMERO_INTEIRO = r"(0|[1-9]\d*)"
+    t_NUMERO_FLUTUANTE = r"(0|[1-9]\d*)\.\d*"
+    t_NUMERO_CIENTIFICO = r"(0|[1-9]\d*)(\.\d+)?[eE][+-]?\d+"
     t_CARACTERES = r"\"(\\\"|[^\"])*\""
     t_ADICAO = r"\+"
     t_SUBTRACAO = r"\-"
@@ -94,7 +94,7 @@ class Lexer:
         r'{(\\}|[^}])*}'
 
     def t_error(self, t):
-        print("Illegal character '%s'" % t.value[0])
+        print("Caracter ilegal '%s'" % t.value[0])
         t.lexer.skip(1)
 
     def __init__(self):
@@ -109,24 +109,41 @@ class Lexer:
                 break
             yield tok
 
+
+def report(text):
+    print("{:^6} {:^9} {:^20} {}".format("Linha", "Posição", "Tipo", "Valor"))
+    for tok in Lexer().tokenize(text):
+        print(tok.type)
+
+
+def print_type(text):
+    for tok in Lexer().tokenize(text):
+        print(tok.type)
+
+
 def main():
-    if len(sys.argv) != 2:
+    if not len(sys.argv) in [2, 3]:
         print("You must pass a filename as argument")
-        print("python3 Lexer.py <filename>")
+        print("python3 Lexer.py <filename> [--report]")
         return
 
-    filename = sys.argv[1]
+    idx = 1
+    executor = print_type
+    if len(sys.argv) == 3:
+        (idx, rep) = (2, 1) if sys.argv[1] == '--report' else (1, 2)
+        if sys.argv[rep] == "--report":
+            executor = report
+
+    filename = sys.argv[idx]
     try:
         with open(filename, encoding="utf-8") as file:
             text = file.read()
     except:
         print("You must pass a valid filename as argument")
-        print("python3 Lexer.py <filename>")
+        print("python3 Lexer.py <filename> [--report]")
         return
 
-    print("{:^6} {:^9} {:^20} {}".format("Linha", "Posição", "Tipo", "Valor"))
-    for tok in Lexer().tokenize(text):
-        print(tok)
+    executor(text)
 
 
 if __name__ == "__main__":
