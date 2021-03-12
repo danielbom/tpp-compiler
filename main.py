@@ -1,8 +1,6 @@
 from tpp.Lexer import Lexer
 from tpp.Parser import Parser
 
-lexer = Lexer()
-parser = Parser(lexer)
 
 samples_declaration_variable = [
   "inteiro: x",
@@ -36,20 +34,90 @@ samples_declaration_function = [
 
 samples_if = [
   "se 0 então fim",
-  # "se 0 então senão fim",
-  # "se 0 então senão se fim",
-  # "se 0 então senão se fim",
-  # "se 0 então senão se senão fim",
+  "se 0 então 0 fim",
+  "se 0 então se 0 então fim fim",
+  "se 0 então senão fim",
+  "se 0 então 0 senão fim",
+  "se 0 então senão 0 fim",
+  "se 0 então 0 senão 0 fim",
+  "se 0 então se 0 então fim senão fim",
+  "se 0 então senão se 0 então senão fim",
+  "se 0 então senão se 0 então fim",
 ]
 
-samples = samples_if
+samples_math_expr = [
+  "1",
+  "1 + 1",
+  "0 - 10",
+  "2 * 8",
+  "1 + 2 - 5",
+  "1 + 2 - 3 * 4 + 5 - 6 + 7 * 8",
+  "(1 + 2) * (4 - 2)"
+]
 
-for s in samples:
-  print(s)
-  # print()
-  # lexer.tokenize(s)
-  print()
-  ast = parser.parse(s)
-  print(ast)
-  print()
+samples_math_expr_2 = [
+  "-1",
+  "-1 + 2",
+  "+1",
+  "+1 - 2",
+  "-(8 / 3 + 1)",
+  "1 + 2 - 3 * 4 + 5 - 6 / 7 * 8",
+  "x + y - z * x + y - z / g * x",
+]
 
+samples_codes = [
+  '''
+  principal()
+    inteiro: x := 10
+    x += 1
+    retorna (0)
+  fim
+  '''
+]
+
+samples_comparison = [
+  '1',
+  '1 > 2',
+  '1 < 2',
+  '1 <> 2',
+  '1 = 2',
+  '1 >= 2',
+  '1 <= 2',
+]
+
+samples_booleans = [
+  "1",
+  "1 && 2",
+  "1 || 2",
+  "!12",
+  "1 && 2 || 3 && 4",
+]
+
+samples_pairs_all = [
+  ("declaracao_de_variavel", samples_declaration_variable),
+  ("declaracao_de_funcao", samples_declaration_function),
+  ("declaracao_se", samples_if),
+  ("expressao_matematica", samples_math_expr),
+  ("expressao_matematica", samples_math_expr_2),
+  ("root", samples_codes),
+  ('expressoes_de_comparacao', samples_comparison),
+  ('expressoes_booleanas', samples_booleans)
+]
+
+samples_pairs = [samples_pairs_all[-1]]
+
+i = 0
+for pair in samples_pairs:
+  start, samples = pair
+  lexer = Lexer()
+  parser = Parser(lexer, start = start)
+  print(start)
+  print()
+  for s in samples:
+    print(f"[{i}]: {s}")
+    print('=' * 50)
+    ast = parser.parse(s)
+    print(ast)
+    print('=' * 50)
+    print()
+    i += 1
