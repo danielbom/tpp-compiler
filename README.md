@@ -1,5 +1,9 @@
 # tpp-compiler
 
+**Operational System**: Ubuntu 20.04
+
+**Python version**: 3.8.5
+
 # Steps
 
 ```bash
