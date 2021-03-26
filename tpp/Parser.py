@@ -209,8 +209,9 @@ class Parser:
 
     def p_expressoes_booleanas1(self, p):
         'expressoes_booleanas : negacao'
-        p[0] = Tree('expressoes_booleanas', [p[1]])
+        p[0] = p[1]
     
+    # === negacao ===
     def p_negacao(self, p):
         'negacao : NEGACAO expressoes_booleanas_primario'
         p[0] = Tree('negacao', [p[2]])
@@ -227,6 +228,7 @@ class Parser:
         'expressoes_booleanas_primario : expressoes_de_comparacao'
         p[0] = p[1]
 
+    # === conjuncao ou disjuncao ===
     def p_conjuncao_ou_disjuncao(self, p):
         'conjuncao_ou_disjuncao : conjuncao_ou_disjuncao conjuncao_ou_disjuncao_terminal'
         cs = self.extract_many(p[1], 'conjuncao_ou_disjuncao')
@@ -247,7 +249,7 @@ class Parser:
     # === expressoes de comparacao ===
     def p_expressoes_de_comparacao(self, p):
         'expressoes_de_comparacao : expressao_de_comparacao_primario qualquer_expressoes_de_comparacao'
-        p[0] = Tree('expressoes_de_comparacao', [p[1], p[2]])
+        p[0] = Tree('expressoes_de_comparacao', [p[2].prepend(p[1])])
 
     def p_expressoes_de_comparacao1(self, p):
         'expressoes_de_comparacao : expressao_de_comparacao_primario'
@@ -257,6 +259,7 @@ class Parser:
         'expressao_de_comparacao_primario : expressao_matematica'
         p[0] = p[1]
     
+    # === qualquer expressao de comparacao ===
     def p_qualquer_expressoes_de_comparacao(self, p):
         'qualquer_expressoes_de_comparacao : MENOR expressao_de_comparacao_primario'
         p[0] = Tree('menor', [p[2]])
