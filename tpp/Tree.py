@@ -4,9 +4,12 @@ from anytree import Node
 def generate_anytree_tree(root):
     def _rec(node, parent):
         anytree_node = Node(node.identifier, parent=parent)
-
-        for c in node.children:
-            _rec(c, anytree_node)
+        
+        if node.value:
+            value = Node(node.value, parent=anytree_node)
+        else:
+            for c in node.children:
+                _rec(c, anytree_node)
 
         return anytree_node
 
