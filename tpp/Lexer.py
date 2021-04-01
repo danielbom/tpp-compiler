@@ -62,10 +62,10 @@ class Lexer:
     t_SUBTRACAO_ATRIBUICAO = r"\-="
     t_MULTIPLICACAO_ATRIBUICAO = r"\*="
     t_DIVISAO_ATRIBUICAO = r"\/="
-    t_PARENTESES_DIR = r"\("
-    t_PARENTESES_ESQ = r"\)"
-    t_COLCHETE_DIR = r"\["
-    t_COLCHETE_ESQ = r"\]"
+    t_PARENTESES_ESQ = r"\("
+    t_PARENTESES_DIR = r"\)"
+    t_COLCHETE_DIR = r"\]"
+    t_COLCHETE_ESQ = r"\["
     t_MENOR = r"<"
     t_MAIOR = r">"
     t_MENORIGUAL = r"<="
@@ -113,7 +113,7 @@ class Lexer:
 def report(text):
     print("{:^6} {:^9} {:^20} {}".format("Linha", "Posição", "Tipo", "Valor"))
     for tok in Lexer().tokenize(text):
-        print(tok.type)
+        print("{:^6} {:^9} {:^20} {}".format(tok.lineno, tok.lexpos, tok.type, tok.value))
 
 
 def print_type(text):
