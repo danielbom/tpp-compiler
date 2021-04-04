@@ -33,14 +33,13 @@ class Tree:
             spaces = "  " * indentation
 
             if node.value is None:
-                s = spaces + f"({node.identifier})"
+                s = spaces + f"({indentation}, {node.identifier})"
             else:
-                s = spaces + f"({node.identifier}, {node.value})"
+                s = spaces + f"({indentation}, {node.identifier}, \"{node.value}\")"
 
             if node.children:
-                s += " [\n"
-                s += f",\n".join(str_rec(c, indentation + 1) for c in node.children)
-                s += "\n" + spaces + "]"
+                s += "\n"
+                s += f"\n".join(str_rec(c, indentation + 1) for c in node.children)
 
             return s
         return str_rec(self, 0)
