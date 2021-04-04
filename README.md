@@ -17,5 +17,6 @@ source ./penv/bin/activate
 pip install ply
 pip install llvmlite
 pip install graphviz
+pip install argh
 ```
 
