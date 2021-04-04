@@ -28,23 +28,25 @@ class Tree:
     def prepend(self, tree):
         return Tree(self.identifier, [tree] + self.children, self.value)
 
-    def str_rec(self, indentation: int):
-        spaces = "  " * indentation
+    def str_tree(self):
+        def str_rec(node, indentation: int):
+            spaces = "  " * indentation
 
-        if self.value is None:
-            s = spaces + f"({self.identifier})"
-        else:
-            s = spaces + f"({self.identifier}, {self.value})"
+            if node.value is None:
+                s = spaces + f"({node.identifier})"
+            else:
+                s = spaces + f"({node.identifier}, {node.value})"
 
-        if self.children:
-            s += " [\n"
-            s += f",\n".join(c.str_rec(indentation + 1) for c in self.children)
-            s += "\n" + spaces + "]"
+            if node.children:
+                s += " [\n"
+                s += f",\n".join(str_rec(c, indentation + 1) for c in node.children)
+                s += "\n" + spaces + "]"
 
-        return s
+            return s
+        return str_rec(self, 0)
 
     def __str__(self):
-        return self.str_rec(0)
+        return f"Tree({self.identifier})"
 
     def __repr__(self):
         return str(self)
