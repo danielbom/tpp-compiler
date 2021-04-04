@@ -26,7 +26,7 @@ def tokenize(filename, report=False):
     executor(text)
 
 
-def parse(filename, start='programa', mode='print'):
+def parse(filename, start='programa', mode='print', output="tree"):
     lexer = Lexer()
     parser = Parser(lexer, start=start)
 
@@ -35,18 +35,17 @@ def parse(filename, start='programa', mode='print'):
 
     ast = parser.parse(text)
 
-    if mode == 'print':
-        if ast is not None:
+    if ast is None:
+        print(None)
+    else:
+        if mode == 'print':
             print(ast.str_tree())
-        else:
-            print(None)
-    elif mode == 'dot':
-        if ast is not None:
+        elif mode == 'png':
             root = generate_anytree_tree(ast)
-            UniqueDotExporter(root).to_dotfile("tree.dot")
-        else:
-            print(None)
-
+            UniqueDotExporter(root).to_picture(output + '.png')
+        elif mode == 'dot':
+            root = generate_anytree_tree(ast)
+            UniqueDotExporter(root).to_dotfile(output + '.dot')
 
 parser = argh.ArghParser()
 parser.add_commands([tokenize, parse])
