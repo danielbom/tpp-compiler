@@ -57,6 +57,10 @@ def tokenize(filename, report=False):
 @argh.arg('-o', '--output', help="name of output file running on 'png' or 'dot' mode")
 @argh.arg('-m', '--mode', choices=['strtree', 'strclojure', 'png', 'dot'])
 def parse(filename, start='programa', mode='strtree', output="tree"):
+    if not os.path.isfile(filename):
+        print('Error: File not found')
+        return
+
     lexer = Lexer()
     parser = Parser(lexer, start=start)
 

@@ -672,7 +672,8 @@ class Parser(ParserLeaf, ParserErrorCatcher):
         '''literal : numero
                     | caracteres
                     | var
-                    | expressao_unaria'''
+                    | expressao_unaria
+                    | chamada_de_funcao_declaracao'''
         p[0] = Tree('literal', p[1:])
 
     def p_literal1(self, p):

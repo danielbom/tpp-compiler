@@ -152,6 +152,7 @@ primario :
     | caracteres
     | var
     | expressao_unaria
+    | chamada_de_funcao_declaracao
 
 tipo_inteiro: INTEIRO
 tipo_flutuante: FLUTUANTE
