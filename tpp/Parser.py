@@ -14,8 +14,8 @@ class Parser:
 
             ('right', 'ADICAO', 'SUBTRACAO'),
             ('right', 'MULTIPLICACAO', 'DIVISAO'),
-            ('right', 'IGUAL', 'DIFERENTE', 'MENOR',
-             'MAIOR', 'MENORIGUAL', 'MAIORIGUAL'),
+            ('right', 'MENOR', 'MAIOR', 'MENORIGUAL', 'MAIORIGUAL'),
+            ('right', 'IGUAL', 'DIFERENTE'),
             ('right', 'E_LOGICO', 'OU_LOGICO'),
             ('left', 'NEGACAO'),
 
@@ -430,7 +430,7 @@ class Parser:
         p[0] = Tree('expressoes_booleanas_primario', [p[1], p[2], p[3]])
 
     def p_expressoes_booleanas_primario1(self, p):
-        'expressoes_booleanas_primario : expressoes_de_comparacao'
+        'expressoes_booleanas_primario : expressoes_de_igualdade'
         p[0] = Tree('expressoes_booleanas_primario', [p[1]])
 
     # === conjuncao ou disjuncao ===
@@ -450,6 +450,28 @@ class Parser:
         'conjuncao_ou_disjuncao_terminal : booleano_ou negacao'
         p[0] = Tree('disjuncao', [p[2]])
 
+    # === expressao de igualdade ===
+    def p_expressoes_de_igualdade(self, p):
+        'expressoes_de_igualdade : expressao_de_igualdade_primario qualquer_expressoes_de_igualdade'
+        p[0] = Tree('expressoes_de_igualdade', [p[1], p[2]])
+
+    def p_expressoes_de_igualdade1(self, p):
+        'expressoes_de_igualdade : expressao_de_igualdade_primario'
+        p[0] = Tree('expressoes_de_igualdade', [p[1]])
+
+    def p_expressoes_de_igualdade_primario(self, p):
+        'expressao_de_igualdade_primario : expressoes_de_comparacao'
+        p[0] = Tree('expressao_de_igualdade_primario', [p[1]])
+
+    # === qualquer expressao de igualdade ===
+    def p_qualquer_expressoes_de_igualdade(self, p):
+        'qualquer_expressoes_de_igualdade : comparacao_igual expressao_de_igualdade_primario'
+        p[0] = Tree('igual', [p[1], p[2]])
+
+    def p_qualquer_expressoes_de_igualdade1(self, p):
+        'qualquer_expressoes_de_igualdade : comparacao_diferente expressao_de_igualdade_primario'
+        p[0] = Tree('diferente', [p[1], p[2]])
+    
     # === expressoes de comparacao ===
     def p_expressoes_de_comparacao(self, p):
         'expressoes_de_comparacao : expressao_de_comparacao_primario qualquer_expressoes_de_comparacao'
@@ -479,14 +501,6 @@ class Parser:
     def p_qualquer_expressoes_de_comparacao3(self, p):
         'qualquer_expressoes_de_comparacao : comparacao_maior_igual expressao_de_comparacao_primario'
         p[0] = Tree('maior_igual', [p[1], p[2]])
-
-    def p_qualquer_expressoes_de_comparacao4(self, p):
-        'qualquer_expressoes_de_comparacao : comparacao_igual expressao_de_comparacao_primario'
-        p[0] = Tree('igual', [p[1], p[2]])
-
-    def p_qualquer_expressoes_de_comparacao5(self, p):
-        'qualquer_expressoes_de_comparacao : comparacao_diferente expressao_de_comparacao_primario'
-        p[0] = Tree('diferente', [p[1], p[2]])
 
     # === expressao matematica ===
     def p_expressao_matematica(self, p):
