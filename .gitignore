@@ -133,3 +133,4 @@ penv/
 parser.out
 parsetab.py
 ./output.txt
+tmp/
