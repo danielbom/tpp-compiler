@@ -534,11 +534,11 @@ class Parser:
 
     # === produto ===
     def p_produto(self, p):
-        'produto : primario multiplica_ou_divide'
+        'produto : literal multiplica_ou_divide'
         p[0] = Tree('produto', [p[1], p[2]])
 
     def p_produto1(self, p):
-        'produto : primario'
+        'produto : literal'
         p[0] = Tree('produto', [p[1]])
 
     def p_multiplica_ou_divide(self, p):
@@ -550,33 +550,33 @@ class Parser:
         p[0] = Tree('multiplica_ou_divide', [p[1]])
 
     def p_multiplica_ou_divide_terminal(self, p):
-        'multiplica_ou_divide_terminal : multiplicacao primario'
+        'multiplica_ou_divide_terminal : multiplicacao literal'
         p[0] = Tree('multiplica_ou_divide_terminal', [p[1], p[2]])
 
     def p_multiplica_ou_divide_terminal1(self, p):
-        'multiplica_ou_divide_terminal : divisao primario'
+        'multiplica_ou_divide_terminal : divisao literal'
         p[0] = Tree('multiplica_ou_divide_terminal', [p[1], p[2]])
 
     # === expressao unaria ===
     def p_expressao_unaria(self, p):
-        'expressao_unaria : adicao primario'
+        'expressao_unaria : adicao literal'
         p[0] = Tree('expressao_unaria', [p[1], p[2]])
 
     def p_expressao_unaria1(self, p):
-        'expressao_unaria : subtracao primario'
+        'expressao_unaria : subtracao literal'
         p[0] = Tree('expressao_unaria', [p[1], p[2]])
 
-    # === primario ===
-    def p_primario(self, p):
-        'primario : parenteses_esquerdo expressao_matematica parenteses_direito'
-        p[0] = Tree('primario', [p[1], p[2], p[3]])
-
-    def p_primario1(self, p):
-        '''primario : numero
+    # === literal ===
+    def p_literal(self, p):
+        '''literal : numero
                     | caracteres
                     | var
                     | expressao_unaria'''
-        p[0] = Tree('primario', [p[1]])
+        p[0] = Tree('literal', [p[1]])
+
+    def p_literal1(self, p):
+        'literal : parenteses_esquerdo expressao parenteses_direito'
+        p[0] = Tree('literal', [p[1], p[2], p[3]])
 
     # === errors ===
     def p_criacao_de_variavel_lista_error(self, p):
