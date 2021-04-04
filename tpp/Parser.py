@@ -4,20 +4,39 @@ from tpp.Tree import Tree
 
 class Parser:
     def __init__(self, lexer, start="programa"):
+        self.predecendes = [
+            ('left', 'PARENTESES_ESQ', 'COLCHETE_ESQ'),
+            ('right', 'PARENTESES_DIR', 'COLCHETE_DIR'),
+
+            ('left', 'VIRGULA'),
+            ('left', 'ATRIBUICAO', 'ADICAO_ATRIBUICAO', 'SUBTRACAO_ATRIBUICAO',
+             'MULTIPLICACAO_ATRIBUICAO', 'DIVISAO_ATRIBUICAO'),
+
+            ('right', 'ADICAO', 'SUBTRACAO'),
+            ('right', 'MULTIPLICACAO', 'DIVISAO'),
+            ('right', 'IGUAL', 'DIFERENTE', 'MENOR',
+             'MAIOR', 'MENORIGUAL', 'MAIORIGUAL'),
+            ('right', 'E_LOGICO', 'OU_LOGICO'),
+            ('left', 'NEGACAO'),
+
+            ('left', 'SE', 'REPITA'),
+            ('left', 'SENAO'),
+            ('left', 'FIM'),
+        ]
         self.lexer = lexer
         self.tokens = lexer.tokens
         self.start = start
-        self.has_error = False
+        self.error_state = 0
         self.parser = yacc(module=self)
 
-    def parse(self, text: str):
-        self.has_error = False
-        return self.parser.parse(text)
-    
+    def parse(self, code: str):
+        self.error_state = 0
+        return self.parser.parse(code)
+
     def p_vazio(self, p):
         'vazio :'
         p[0] = Tree('vazio')
- 
+
     def p_tipo(self, p):
         '''tipo : tipo_inteiro
             | tipo_flutuante
@@ -28,11 +47,11 @@ class Parser:
     def p_programa(self, p):
         'programa : programa_lista_declaracao'
         p[0] = Tree('programa', [p[1]])
-    
+
     def p_programa_lista_declaracao(self, p):
         'programa_lista_declaracao : programa_lista_declaracao programa_lista_declaracao_terminal'
         p[0] = Tree('programa_lista_declaracao', [*p[1].children, p[2]])
-    
+
     def p_programa_lista_declaracao_um(self, p):
         'programa_lista_declaracao : programa_lista_declaracao_terminal'
         p[0] = Tree('programa_lista_declaracao', [p[1]])
@@ -46,11 +65,11 @@ class Parser:
     # === variavel ===
     def p_ponteiro(self, p):
         'ponteiro : colchete_esquerdo colchete_direito'
-        p[0] = Tree('ponteiro', [p[1], p[2], p[3]])
+        p[0] = Tree('ponteiro', [p[1], p[2]])
 
     def p_vetor(self, p):
         'vetor : colchete_esquerdo expressao colchete_direito'
-        p[0] = Tree('vetor', [p[1], p[2], p[3], p[4]])
+        p[0] = Tree('vetor', [p[1], p[2], p[3]])
 
     def p_var(self, p):
         '''var : var ponteiro
@@ -99,7 +118,7 @@ class Parser:
     def p_criacao_de_variavel_lista(self, p):
         'criacao_de_variaveis_lista : criacao_de_variaveis_lista virgula var'
         p[0] = Tree('criacao_de_variaveis_lista', [*p[1].children, p[2], p[3]])
-        
+
     def p_criacao_de_variavel_lista_um(self, p):
         'criacao_de_variaveis_lista : var'
         p[0] = Tree('criacao_de_variaveis_lista', [p[1]])
@@ -144,7 +163,7 @@ class Parser:
     def p_se_fim(self, p):
         'se_fim : fim'
         p[0] = Tree('se_fim', [p[1]])
-    
+
     def p_se_senao_fim(self, p):
         'se_fim : senao declaracoes fim'
         corpo = p[2].update_identifier('se_corpo')
@@ -174,7 +193,7 @@ class Parser:
         'funcao_declaracao : tipo funcao_cabecalho declaracoes fim'
         corpo = p[3].update_identifier('funcao_corpo')
         p[0] = Tree('funcao_declaracao', [p[1], p[2], corpo, p[4]])
-    
+
     def p_funcao_declaracao_sem_tipo(self, p):
         'funcao_declaracao : funcao_cabecalho declaracoes fim'
         corpo = p[2].update_identifier('funcao_corpo')
@@ -196,7 +215,7 @@ class Parser:
     def p_funcao_lista_parametros_vazio(self, p):
         'funcao_cabecalho_lista_parametros : vazio'
         p[0] = Tree('lista_parametros', [p[1]])
-    
+
     def p_funcao_parametro(self, p):
         'funcao_parametro : tipo dois_pontos var'
         p[0] = Tree('parametro', [p[1], p[2], p[3]])
@@ -396,12 +415,12 @@ class Parser:
     def p_expressoes_booleanas1(self, p):
         'expressoes_booleanas : negacao'
         p[0] = Tree('expressoes_booleanas', [p[1]])
-    
+
     # === negacao ===
     def p_negacao(self, p):
         'negacao : booleano_negacao expressoes_booleanas_primario'
         p[0] = Tree('negacao', [p[1], p[2]])
-    
+
     def p_negacao1(self, p):
         'negacao : expressoes_booleanas_primario'
         p[0] = Tree('negacao', [p[1]])
@@ -409,7 +428,7 @@ class Parser:
     def p_expressoes_booleanas_primario(self, p):
         'expressoes_booleanas_primario : parenteses_esquerdo expressoes_booleanas parenteses_direito'
         p[0] = Tree('expressoes_booleanas_primario', [p[1], p[2], p[3]])
-    
+
     def p_expressoes_booleanas_primario1(self, p):
         'expressoes_booleanas_primario : expressoes_de_comparacao'
         p[0] = Tree('expressoes_booleanas_primario', [p[1]])
@@ -418,15 +437,15 @@ class Parser:
     def p_conjuncao_ou_disjuncao(self, p):
         'conjuncao_ou_disjuncao : conjuncao_ou_disjuncao conjuncao_ou_disjuncao_terminal'
         p[0] = Tree('conjuncao_ou_disjuncao', [p[1], p[2]])
-    
+
     def p_conjuncao_ou_disjuncao1(self, p):
         'conjuncao_ou_disjuncao : conjuncao_ou_disjuncao_terminal'
         p[0] = Tree('conjuncao_ou_disjuncao', [p[1]])
-    
+
     def p_conjuncao_ou_disjuncao_terminal(self, p):
         'conjuncao_ou_disjuncao_terminal : booleano_e negacao'
         p[0] = Tree('conjuncao', [p[2]])
-        
+
     def p_conjuncao_ou_disjuncao_terminal1(self, p):
         'conjuncao_ou_disjuncao_terminal : booleano_ou negacao'
         p[0] = Tree('disjuncao', [p[2]])
@@ -439,11 +458,11 @@ class Parser:
     def p_expressoes_de_comparacao1(self, p):
         'expressoes_de_comparacao : expressao_de_comparacao_primario'
         p[0] = Tree('expressoes_de_comparacao', [p[1]])
-    
+
     def p_expressoes_de_comparacao_primario(self, p):
         'expressao_de_comparacao_primario : expressao_matematica'
         p[0] = Tree('expressao_de_comparacao_primario', [p[1]])
-    
+
     # === qualquer expressao de comparacao ===
     def p_qualquer_expressoes_de_comparacao(self, p):
         'qualquer_expressoes_de_comparacao : comparacao_menor expressao_de_comparacao_primario'
@@ -546,102 +565,101 @@ class Parser:
         p[0] = Tree('primario', [p[1]])
 
     # === errors ===
-    def p_var_error(self, p):
-        '''var : var error'''
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante a construção de variável com indices "[INTEIRO]"')
-        p.error()
-    
-    def p_retorna_declaracao_error(self, p):
-        'retorna_declaracao : retorna error'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante a declaracao de retorno')
+    def p_criacao_de_variavel_lista_error(self, p):
+        'criacao_de_variaveis_lista : criacao_de_variaveis_lista error var'
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante a declaração de variáveis.')
+            print('É esperado virgulas como separador das variáveis.')
         p.error()
 
-    def p_criacao_de_variaveis_declaracao_error1(self, p):
-        'criacao_de_variaveis_declaracao : error dois_pontos criacao_de_variaveis_lista'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante a criação de variável')
-            print('É esperado um tipo antes dos dois pontos.')
-        p.error()
-
-    def p_criacao_de_variaveis_declaracao_error2(self, p):
+    def p_criacao_de_variaveis_declaracao_error(self, p):
         'criacao_de_variaveis_declaracao : tipo error criacao_de_variaveis_lista'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante a criação de variável')
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante a declaração de variáveis.')
             print('É esperado ":" (dois pontos) depois do tipo.')
         p.error()
-    
-    def p_se_declaracao_error(self, p):
+
+    def p_se_declaracao_error1(self, p):
         'se_declaracao : se expressao error declaracoes se_fim'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante a criação da declaração "se"')
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante a criação da declaração "se".')
             print('É esperado "então" após a expressão da declaração "se".')
         p.error()
 
-    def p_se_fim_error(self, p):
-        'se_fim : error'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante a criação da declaração "se"')
-            print('É esperado "fim" ou "senão" após o corpo da declaração "se".')
+    def p_se_declaracao_error2(self, p):
+        'se_declaracao : error expressao entao declaracoes se_fim'
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante a criação da declaração "se".')
+            print('É esperado "se" antes da palavra reservada "então".')
         p.error()
-    
-    def p_se_senao_fim_error(self, p):
-        'se_fim : senao declaracoes error'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante a criação da declaração "se"')
-            print('É esperado "fim" após o corpo da declaração "senão".')
-        p.error()
-    
-    def p_repita_declaracao_error(self, p):
+
+    def p_repita_declaracao_error1(self, p):
         'repita_declaracao : repita declaracoes error expressao'
-        if not self.has_error:
-            self.has_error = True
-            p.error()
+        if self.error_state == 1:
+            self.error_state += 1
             print([t.identifier if t else None for t in p])
-            print('Erro de sintáxe durante a criação da declaração "repita"')
+            print('Erro de sintáxe durante a criação da declaração "repita".')
             print('É esperado "até" após o corpo da declaração "repita"')
-        # p.error()
-    
+        p.error()
+
+    def p_repita_declaracao_error2(self, p):
+        'repita_declaracao : error declaracoes ate expressao'
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante a criação da declaração "repita".')
+            print('É esperado "repita" antes das declaração do corpo do "repita"')
+        p.error()
+
     def p_funcao_declaracao_error(self, p):
         'funcao_declaracao : tipo funcao_cabecalho declaracoes error'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante declaração de função')
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante declaração de função.')
             print('É esperado "fim" após o corpo da declaração da função')
         p.error()
-    
+
     def p_funcao_lista_parametros_error(self, p):
         'funcao_cabecalho_lista_parametros : funcao_cabecalho_lista_parametros error funcao_parametro'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante declaração de função')
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante declaração de função.')
             print('É esperado "," (virgulas) para a separação de parametros.')
         p.error()
 
     def p_funcao_parametro_error1(self, p):
         'funcao_parametro : error dois_pontos var'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante declaração de função')
-            print('É esperado um tipo antes dos ":" (dois pontos) na declaração de parametros.')
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante declaração de função.')
+            print(
+                'É esperado um tipo antes dos ":" (dois pontos) na declaração de parametros.')
         p.error()
-    
+
     def p_funcao_parametro_error2(self, p):
         'funcao_parametro : tipo error var'
-        if not self.has_error:
-            self.has_error = True
-            print('Erro de sintáxe durante declaração de função')
-            print('É esperado ":" (dois pontos) depois do tipo na declaração de parametros.')
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante declaração de função.')
+            print(
+                'É esperado ":" (dois pontos) depois do tipo na declaração de parametros.')
         p.error()
-    
-    # === error ===
+
+    def p_adiciona_ou_subtrai_adicao_error(self, p):
+        'adiciona_ou_subtrai_terminal : error produto'
+        t = p.parser.token()
+        if self.error_state == 1:
+            self.error_state += 1
+            print('Erro de sintáxe durante uma expressão de soma ou subtração.')
+        p.error()
+
     def p_error(self, p):
-        print(f'Erro na linha: {p.lineno}')
+        if not p:
+            print('Erro fatal: Existem declarações incompletas!')
+
+        if self.error_state == 0 and p:
+            print(f'Erro na linha: {p.lineno}')
+        self.error_state += 1
