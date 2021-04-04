@@ -25,9 +25,6 @@ class Tree:
     def update_identifier(self, identifier):
         return Tree(identifier, self.children, self.value)
 
-    def prepend(self, tree):
-        return Tree(self.identifier, [tree] + self.children, self.value)
-
     def str_tree(self, indentation = 0):
         spaces = "  " * indentation
 
