@@ -28,21 +28,27 @@ class Tree:
     def prepend(self, tree):
         return Tree(self.identifier, [tree] + self.children, self.value)
 
-    def str_tree(self):
-        def str_rec(node, indentation: int):
-            spaces = "  " * indentation
+    def str_tree(self, indentation = 0):
+        spaces = "  " * indentation
 
-            if node.value is None:
-                s = spaces + f"({indentation}, {node.identifier})"
-            else:
-                s = spaces + f"({indentation}, {node.identifier}, \"{node.value}\")"
+        if self.value is None:
+            s = spaces + f"({indentation}, {self.identifier})"
+        else:
+            s = spaces + f"({indentation}, {self.identifier}, \"{self.value}\")"
 
-            if node.children:
-                s += "\n"
-                s += f"\n".join(str_rec(c, indentation + 1) for c in node.children)
+        if self.children:
+            s += "\n"
+            s += f"\n".join(c.str_tree(indentation + 1) for c in self.children)
 
-            return s
-        return str_rec(self, 0)
+        return s
+    
+    def str_clojure(self, indentation = 0):
+        spaces = "  " * indentation
+        if self.value: # literal
+            return f"\"{self.value}\""
+        if self.children: # common
+            return f"\n{spaces}({self.identifier} {' '.join(c.str_clojure(indentation + 1) for c in self.children)})"
+        return f"{self.identifier}"
 
     def __str__(self):
         return f"Tree({self.identifier})"

@@ -1,0 +1,207 @@
+BNF
+
+vazio:
+tipo: tipo_inteiro
+    | tipo_flutuante
+    | tipo_texto
+
+programa: programa_lista_declaracao
+programa_lista_declaracao:
+    programa_lista_declaracao programa_lista_declaracao_terminal
+    | programa_lista_declaracao_terminal
+programa_lista_declaracao_terminal: 
+    funcao_declaracao
+    | criacao_de_variaveis_declaracao
+    | atribuicao_declaracao
+
+ponteiro: colchete_esquerdo colchete_direito
+vetor: colchete_esquerdo expressao colchete_direito
+var: var ponteiro
+    | var vetor
+    | id
+
+declaracoes: 
+    declaracoes declaracoes_terminal
+    | declaracoes_terminal
+declaracoes_terminal: 
+    se_declaracao
+    | repita_declaracao
+    | atribuicao_declaracao
+    | retorna_declaracao
+    | escreva_declaracao
+    | leia_declaracao
+    | chamada_de_funcao_declaracao
+    | criacao_de_variaveis_declaracao
+    | vazio
+
+retorna_declaracao: 
+    retorna expressao
+    | retorna
+
+criacao_de_variaveis_declaracao: 
+    tipo dois_pontos criacao_de_variaveis_lista
+criacao_de_variaveis_lista: 
+    criacao_de_variaveis_lista virgula var
+    | var
+
+leia_declaracao: 
+    leia parenteses_esquerdo parenteses_direito
+
+escreva_declaracao: 
+    escreva parenteses_esquerdo expressao parenteses_direito
+
+chamada_de_funcao_declaracao:
+    id parenteses_esquerdo chamada_de_funcao_parametros parenteses_direito
+chamada_de_funcao_parametros:
+    chamada_de_funcao_parametros virgula chamada_de_funcao_parametro
+    | chamada_de_funcao_parametro
+    | vazio
+
+se_declaracao: se expressao entao declaracoes se_fim
+se_fim: 
+    senao declaracoes fim
+    | fim
+
+repita_declaracao: repita declaracoes ate expressao
+
+atribuicao_declaracao: var atribuicao_operacao expressao
+atribuicao_operacao: atribuicao
+    | atribuicao_adicao
+    | atribuicao_subtracao
+    | atribuicao_multiplicacao
+    | atribuicao_divisao
+
+funcao_declaracao: tipo funcao_cabecalho declaracoes fim
+    | funcao_cabecalho declaracoes fim
+funcao_cabecalho: 
+    id parenteses_esquerdo funcao_cabecalho_lista_parametros parenteses_direito
+funcao_cabecalho_lista_parametros:
+    funcao_cabecalho_lista_parametros virgula funcao_parametro
+    | funcao_parametro
+    | vazio
+funcao_parametro: tipo dois_pontos var
+
+tipo_inteiro: INTEIRO
+tipo_flutuante: FLUTUANTE
+tipo_texto: TEXTO
+
+colchete_direito: COLCHETE_DIR
+colchete_esquerdo: COLCHETE_ESQ
+parenteses_direito: PARENTESES_DIR
+parenteses_esquerdo: PARENTESES_ESQ
+virgula: VIRGULA
+dois_pontos: DOIS_PONTOS
+atribuicao: ATRIBUICAO
+
+adicao: ADICAO
+subtracao: SUBTRACAO
+multiplicacao: MULTIPLICACAO
+divisao: DIVISAO
+
+atribuicao_adicao: ADICAO_ATRIBUICAO
+atribuicao_subtracao: SUBTRACAO_ATRIBUICAO
+atribuicao_multiplicacao: MULTIPLICACAO_ATRIBUICAO
+atribuicao_divisao: DIVISAO_ATRIBUICAO
+
+comparacao_igual: IGUAL
+comparacao_diferente: DIFERENTE
+comparacao_menor: MENOR
+comparacao_maior: MAIOR
+comparacao_menor_igual: MENORIGUAL
+comparacao_maior_igual: MAIORIGUAL
+
+booleano_negacao: NEGACAO
+booleano_e: E_LOGICO
+booleano_ou: OU_LOGICO
+
+se: SE
+entao: ENTAO
+senao: SENAO
+fim: FIM
+repita: REPITA
+ate: ATE
+retorna: RETORNA
+leia: LEIA
+escreva: ESCREVA
+
+numero_inteiro: NUMERO_INTEIRO
+numero_flutuante: NUMERO_FLUTUANTE
+numero_cientifico: NUMERO_CIENTIFICO
+numero: numero_cientifico
+    | numero_flutuante
+    | numero_inteiro
+
+id: ID
+caracteres: CARACTERES
+
+expressao: expressoes_booleanas
+
+expressoes_booleanas:
+    negacao conjuncao_ou_disjuncao
+    | negacao
+
+negacao: 
+    booleano_negacao expressoes_booleanas_primario
+    | expressoes_booleanas_primario
+
+expressoes_booleanas_primario:
+    parenteses_esquerdo expressoes_booleanas parenteses_direito
+    | expressoes_de_igualdade
+
+conjuncao_ou_disjuncao : 
+    conjuncao_ou_disjuncao conjuncao_ou_disjuncao_terminal
+    | conjuncao_ou_disjuncao_terminal
+
+conjuncao_ou_disjuncao_terminal : 
+    booleano_e negacao
+    | booleano_ou negacao
+
+expressoes_de_igualdade : 
+    expressao_de_igualdade_primario qualquer_expressoes_de_igualdade
+    | expressao_de_igualdade_primario
+expressao_de_igualdade_primario : expressoes_de_comparacao
+
+expressoes_de_comparacao : 
+    expressao_de_comparacao_primario qualquer_expressoes_de_comparacao
+    | expressao_de_comparacao_primario
+expressao_de_comparacao_primario : expressao_matematica
+
+qualquer_expressoes_de_comparacao : 
+    comparacao_menor expressao_de_comparacao_primario
+    | comparacao_maior expressao_de_comparacao_primario
+    | comparacao_menor_igual expressao_de_comparacao_primario
+    | comparacao_maior_igual expressao_de_comparacao_primario
+    | comparacao_igual expressao_de_comparacao_primario
+    | comparacao_diferente expressao_de_comparacao_primario
+
+expressao_matematica : soma
+
+soma : 
+    produto adiciona_ou_subtrai
+    | produto
+adiciona_ou_subtrai : 
+    adiciona_ou_subtrai adiciona_ou_subtrai_terminal
+    | adiciona_ou_subtrai_terminal
+adiciona_ou_subtrai_terminal : 
+    adicao produto
+    | subtracao produto
+
+produto : 
+    primario multiplica_ou_divide
+    | primario
+multiplica_ou_divide : 
+    multiplica_ou_divide multiplica_ou_divide_terminal
+    | multiplica_ou_divide_terminal
+multiplica_ou_divide_terminal : 
+    multiplicacao primario
+    | divisao primario
+
+expressao_unaria : 
+    adicao primario
+    | subtracao primario
+primario : 
+    parenteses_esquerdo expressao_matematica parenteses_direito
+    | numero
+    | caracteres
+    | var
+    | expressao_unaria
