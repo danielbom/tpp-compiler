@@ -1,5 +1,3 @@
-BNF
-
 vazio:
 tipo: tipo_inteiro
     | tipo_flutuante
@@ -81,6 +79,80 @@ funcao_cabecalho_lista_parametros:
     | vazio
 funcao_parametro: tipo dois_pontos var
 
+numero: numero_cientifico
+    | numero_flutuante
+    | numero_inteiro
+
+expressao: expressoes_booleanas
+
+expressoes_booleanas:
+    negacao conjuncao_ou_disjuncao
+    | negacao
+
+negacao: 
+    booleano_negacao expressoes_booleanas_primario
+    | expressoes_booleanas_primario
+
+expressoes_booleanas_primario:
+    parenteses_esquerdo expressoes_booleanas parenteses_direito
+    | expressoes_de_igualdade
+
+conjuncao_ou_disjuncao : 
+    conjuncao_ou_disjuncao conjuncao_ou_disjuncao_terminal
+    | conjuncao_ou_disjuncao_terminal
+
+conjuncao_ou_disjuncao_terminal : 
+    booleano_e negacao
+    | booleano_ou negacao
+
+expressoes_de_igualdade : 
+    expressao_de_igualdade_primario qualquer_expressoes_de_igualdade
+    | expressao_de_igualdade_primario
+expressao_de_igualdade_primario : expressoes_de_comparacao
+
+expressoes_de_comparacao : 
+    expressao_de_comparacao_primario qualquer_expressoes_de_comparacao
+    | expressao_de_comparacao_primario
+expressao_de_comparacao_primario : expressao_matematica
+
+qualquer_expressoes_de_comparacao : 
+    comparacao_menor expressao_de_comparacao_primario
+    | comparacao_maior expressao_de_comparacao_primario
+    | comparacao_menor_igual expressao_de_comparacao_primario
+    | comparacao_maior_igual expressao_de_comparacao_primario
+
+expressao_matematica : soma
+
+soma : 
+    produto adiciona_ou_subtrai
+    | produto
+adiciona_ou_subtrai : 
+    adiciona_ou_subtrai adiciona_ou_subtrai_terminal
+    | adiciona_ou_subtrai_terminal
+adiciona_ou_subtrai_terminal : 
+    adicao produto
+    | subtracao produto
+
+produto : 
+    primario multiplica_ou_divide
+    | primario
+multiplica_ou_divide : 
+    multiplica_ou_divide multiplica_ou_divide_terminal
+    | multiplica_ou_divide_terminal
+multiplica_ou_divide_terminal : 
+    multiplicacao primario
+    | divisao primario
+
+expressao_unaria : 
+    adicao primario
+    | subtracao primario
+primario : 
+    parenteses_esquerdo expressao_matematica parenteses_direito
+    | numero
+    | caracteres
+    | var
+    | expressao_unaria
+
 tipo_inteiro: INTEIRO
 tipo_flutuante: FLUTUANTE
 tipo_texto: TEXTO
@@ -127,81 +199,6 @@ escreva: ESCREVA
 numero_inteiro: NUMERO_INTEIRO
 numero_flutuante: NUMERO_FLUTUANTE
 numero_cientifico: NUMERO_CIENTIFICO
-numero: numero_cientifico
-    | numero_flutuante
-    | numero_inteiro
 
 id: ID
 caracteres: CARACTERES
-
-expressao: expressoes_booleanas
-
-expressoes_booleanas:
-    negacao conjuncao_ou_disjuncao
-    | negacao
-
-negacao: 
-    booleano_negacao expressoes_booleanas_primario
-    | expressoes_booleanas_primario
-
-expressoes_booleanas_primario:
-    parenteses_esquerdo expressoes_booleanas parenteses_direito
-    | expressoes_de_igualdade
-
-conjuncao_ou_disjuncao : 
-    conjuncao_ou_disjuncao conjuncao_ou_disjuncao_terminal
-    | conjuncao_ou_disjuncao_terminal
-
-conjuncao_ou_disjuncao_terminal : 
-    booleano_e negacao
-    | booleano_ou negacao
-
-expressoes_de_igualdade : 
-    expressao_de_igualdade_primario qualquer_expressoes_de_igualdade
-    | expressao_de_igualdade_primario
-expressao_de_igualdade_primario : expressoes_de_comparacao
-
-expressoes_de_comparacao : 
-    expressao_de_comparacao_primario qualquer_expressoes_de_comparacao
-    | expressao_de_comparacao_primario
-expressao_de_comparacao_primario : expressao_matematica
-
-qualquer_expressoes_de_comparacao : 
-    comparacao_menor expressao_de_comparacao_primario
-    | comparacao_maior expressao_de_comparacao_primario
-    | comparacao_menor_igual expressao_de_comparacao_primario
-    | comparacao_maior_igual expressao_de_comparacao_primario
-    | comparacao_igual expressao_de_comparacao_primario
-    | comparacao_diferente expressao_de_comparacao_primario
-
-expressao_matematica : soma
-
-soma : 
-    produto adiciona_ou_subtrai
-    | produto
-adiciona_ou_subtrai : 
-    adiciona_ou_subtrai adiciona_ou_subtrai_terminal
-    | adiciona_ou_subtrai_terminal
-adiciona_ou_subtrai_terminal : 
-    adicao produto
-    | subtracao produto
-
-produto : 
-    primario multiplica_ou_divide
-    | primario
-multiplica_ou_divide : 
-    multiplica_ou_divide multiplica_ou_divide_terminal
-    | multiplica_ou_divide_terminal
-multiplica_ou_divide_terminal : 
-    multiplicacao primario
-    | divisao primario
-
-expressao_unaria : 
-    adicao primario
-    | subtracao primario
-primario : 
-    parenteses_esquerdo expressao_matematica parenteses_direito
-    | numero
-    | caracteres
-    | var
-    | expressao_unaria

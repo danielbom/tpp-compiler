@@ -264,7 +264,6 @@ class ParserErrorCatcher:
 
     def p_adiciona_ou_subtrai_adicao_error(self, p):
         'adiciona_ou_subtrai_terminal : error produto'
-        t = p.parser.token()
         if self.error_state == 1:
             self.error_state += 1
             print('Erro de sintáxe durante uma expressão de soma ou subtração.')
