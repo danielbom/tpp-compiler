@@ -274,7 +274,7 @@ class ParserErrorCatcher:
             print('Erro fatal: Existem declarações incompletas!')
 
         if self.error_state == 0 and p:
-            print(f'Erro na linha: {p.lineno}')
+            print(f'Erro próximo da linha: {p.lineno}')
         self.error_state += 1
 
 

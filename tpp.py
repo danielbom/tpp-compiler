@@ -33,6 +33,12 @@ def execute_clojure_formatter(text):
     except (CalledProcessError, FileNotFoundError):
         print(text)
 
+
+def lexer_print_complete(text):
+    for tok in Lexer().tokenize(text):
+        print(tok)
+
+
 def lexer_print_type(text):
     for tok in Lexer().tokenize(text):
         print(tok.type)
@@ -45,13 +51,18 @@ def lexer_report(text):
             tok.lineno, tok.lexpos, tok.type, tok.value))
 
 
-def tokenize(filename, report=False):
-    executor = lexer_report if report else lexer_print_type
+def tokenize(filename, mode='report'):
+    executor = lexer_report
+    if mode == 'type':
+        executor = lexer_print_type
+    elif mode == 'complete':
+        executor = lexer_print_complete
 
     with open(filename, encoding="utf-8") as file:
         text = file.read()
 
     executor(text)
+
 
 @argh.arg('-s', '--start', help="the begin expression to execute the parser [see BNF file]")
 @argh.arg('-o', '--output', help="name of output file running on 'png' or 'dot' mode")
