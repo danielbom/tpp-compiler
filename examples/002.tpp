@@ -1,8 +1,7 @@
 
 principal()
     inteiro: x
-    x := 10
-    x += x++
+    x := 10++
 
     repita
         se x > 0 então

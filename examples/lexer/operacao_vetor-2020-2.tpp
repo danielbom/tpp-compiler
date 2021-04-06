@@ -1,17 +1,18 @@
-
+{A função preenche o vetor com valores}
 preeenche_vetor(inteiro: vetor[], inteiro: tamanho) 
   inteiro: indice := 0
 
   repita
     se indice > 2 então
-      vetor[indice] = -indice
+      vetor[indice] := -indice
     senão
-      vetor[indice] = indice
+      vetor[indice] := indice
     fim
     indice += 1
   até indice >= tamanho
 fim
 
+{A função processa o vetor}
 processa_vetor(inteiro: vetor[], inteiro: tamanho) 
   inteiro: indice := 0
   inteiro: resultado := 0
@@ -27,9 +28,8 @@ processa_vetor(inteiro: vetor[], inteiro: tamanho)
 
   retorna(resultado)
 fim
-{UM comentário qualquer\}{asdfadfadfas\}}
 
-inteiro principal() 
+inteiro: principal() 
   inteiro: tamanho := 5
   inteiro: vetor[tamanho]
 
