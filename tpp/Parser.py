@@ -296,7 +296,7 @@ class Parser(ParserLeaf, ParserErrorCatcher):
             ('left', 'NEGACAO'),
 
             ('left', 'SE', 'REPITA'),
-            ('left', 'SENAO'),
+            ('right', 'ENTAO', 'SENAO'),
             ('left', 'FIM'),
         ]
         self.lexer = lexer
@@ -442,7 +442,7 @@ class Parser(ParserLeaf, ParserErrorCatcher):
 
     def p_se_senao_fim(self, p):
         'se_fim : senao declaracoes fim'
-        corpo = p[2].update_identifier('se_corpo')
+        corpo = p[2].update_identifier('senao_corpo')
         p[0] = Tree('se_fim', [p[1], corpo, p[3]])
 
     # === declaracao repita ===
@@ -527,10 +527,6 @@ class Parser(ParserLeaf, ParserErrorCatcher):
         p[0] = Tree('negacao', p[1:])
 
     def p_expressoes_booleanas_primario(self, p):
-        'expressoes_booleanas_primario : parenteses_esquerdo expressoes_booleanas parenteses_direito'
-        p[0] = Tree('expressoes_booleanas_primario', p[1:])
-
-    def p_expressoes_booleanas_primario1(self, p):
         'expressoes_booleanas_primario : expressoes_de_igualdade'
         p[0] = Tree('expressoes_booleanas_primario', p[1:])
 
@@ -545,11 +541,11 @@ class Parser(ParserLeaf, ParserErrorCatcher):
 
     def p_conjuncao_ou_disjuncao_terminal(self, p):
         'conjuncao_ou_disjuncao_terminal : booleano_e negacao'
-        p[0] = Tree('conjuncao', [p[2]])
+        p[0] = Tree('conjuncao', p[1:])
 
     def p_conjuncao_ou_disjuncao_terminal1(self, p):
         'conjuncao_ou_disjuncao_terminal : booleano_ou negacao'
-        p[0] = Tree('disjuncao', [p[2]])
+        p[0] = Tree('disjuncao', p[1:])
 
     # === expressao de igualdade ===
     def p_expressoes_de_igualdade(self, p):
@@ -673,9 +669,6 @@ class Parser(ParserLeaf, ParserErrorCatcher):
                     | caracteres
                     | var
                     | expressao_unaria
+                    | parenteses_esquerdo expressoes_booleanas parenteses_direito
                     | chamada_de_funcao_declaracao'''
-        p[0] = Tree('literal', p[1:])
-
-    def p_literal1(self, p):
-        'literal : parenteses_esquerdo expressao parenteses_direito'
         p[0] = Tree('literal', p[1:])
