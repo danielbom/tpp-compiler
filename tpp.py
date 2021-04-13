@@ -7,6 +7,7 @@ from subprocess import CalledProcessError
 
 from tpp.Lexer import Lexer
 from tpp.Parser import Parser
+from tpp.Semantic import simplify_tree, semantic_check
 from tpp.Tree import generate_anytree_tree
 from anytree.exporter import UniqueDotExporter
 
@@ -51,6 +52,7 @@ def lexer_report(text):
             tok.lineno, tok.lexpos, tok.type, tok.value))
 
 
+@argh.arg('-m', '--mode', choices=['report', 'type', 'complete'])
 def tokenize(filename, mode='report'):
     executor = lexer_report
     if mode == 'type':
@@ -66,11 +68,14 @@ def tokenize(filename, mode='report'):
 
 @argh.arg('-s', '--start', help="the begin expression to execute the parser [see BNF file]")
 @argh.arg('-o', '--output', help="name of output file running on 'png' or 'dot' mode")
-@argh.arg('-m', '--mode', choices=['strtree', 'strclojure', 'png', 'dot'])
-def parse(filename, start='programa', mode='strtree', output="tree"):
+@argh.arg('-m', '--mode', choices=['strtree', 'strclojure', 'png', 'dot', 'noop'])
+def parse(filename, start='programa', mode='strtree', output="tree", simplify=False):
     if not os.path.isfile(filename):
         print('Error: File not found')
         return
+
+    if output == 'tree':
+        output = os.path.join(__dirname, 'outputs', output)
 
     lexer = Lexer()
     parser = Parser(lexer, start=start)
@@ -82,7 +87,12 @@ def parse(filename, start='programa', mode='strtree', output="tree"):
 
     if ast is None:
         print(None)
+    elif mode == 'noop':
+        pass
     else:
+        if simplify:
+            ast = simplify_tree(ast)
+
         if mode == 'strtree':
             print(ast.str_tree())
         elif mode == 'strclojure':
@@ -95,9 +105,18 @@ def parse(filename, start='programa', mode='strtree', output="tree"):
             root = generate_anytree_tree(ast)
             UniqueDotExporter(root).to_dotfile(output + '.dot')
 
+def semantic(filename, start='programa'):
+    lexer = Lexer()
+    parser = Parser(lexer, start=start)
+
+    with open(filename, encoding="utf-8") as file:
+        text = file.read()
+
+    ast = parser.parse(text)
+    semantic_check(ast)
 
 parser = argh.ArghParser()
-parser.add_commands([tokenize, parse])
+parser.add_commands([tokenize, parse, semantic])
 
 
 if __name__ == '__main__':
