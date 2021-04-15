@@ -130,7 +130,10 @@ dmypy.json
 
 # virtual env
 penv/
-parser.out
+parser.out*
 parsetab.py
 ./output.txt
 tmp/
+.vscode
+conflicts
+outputs/*

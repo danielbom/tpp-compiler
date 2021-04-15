@@ -416,7 +416,7 @@ class Parser(ParserLeaf, ParserErrorCatcher):
 
     def p_chamada_de_funcao_parametros(self, p):
         'chamada_de_funcao_parametros : chamada_de_funcao_parametros virgula chamada_de_funcao_parametro'
-        p[0] = Tree('chamada_de_funcao_parametros', p[1:])
+        p[0] = Tree('chamada_de_funcao_parametros', [*p[1].children, *p[2:]])
 
     def p_chamada_de_funcao_parametros_um(self, p):
         'chamada_de_funcao_parametros : chamada_de_funcao_parametro'

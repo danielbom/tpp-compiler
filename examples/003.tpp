@@ -1,20 +1,23 @@
 
 preeenche_vetor(inteiro: vetor[], inteiro: tamanho) 
-  inteiro: indice := 0
+  inteiro: indice
+  indice := 0
 
   repita
     se indice > 2 então
-      vetor[indice] = -indice
+      vetor[indice] := -indice
     senão
-      vetor[indice] = indice
+      vetor[indice] := indice
     fim
     indice += 1
   até indice >= tamanho
 fim
 
 processa_vetor(inteiro: vetor[], inteiro: tamanho) 
-  inteiro: indice := 0
-  inteiro: resultado := 0
+  inteiro: indice
+  inteiro: resultado
+  indice := 0 
+  resultado := 0 
 
   repita
     se vetor[indice] > 0 então
@@ -30,12 +33,14 @@ fim
 {UM comentário qualquer\}{asdfadfadfas\}}
 
 inteiro principal() 
-  inteiro: tamanho := 5
+  inteiro: tamanho
+  tamanho := 5
   inteiro: vetor[tamanho]
 
   preeenche_vetor(vetor, tamanho)
 
-  inteiro: resultado := processa_vetor(vetor, tamanho)
+  inteiro: resultado 
+  resultado := processa_vetor(vetor, tamanho)
 
   escreva(resultado)
 
