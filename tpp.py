@@ -26,7 +26,7 @@ def execute_clojure_formatter(text):
 
     ensure_directory(os.path.dirname(temp_file_name))
 
-    with open(temp_file_name, mode='w') as tempfile:
+    with open(temp_file_name, mode="w") as tempfile:
         tempfile.write(text)
 
     try:
@@ -48,16 +48,17 @@ def lexer_print_type(text):
 def lexer_report(text):
     print("{:^6} {:^9} {:<25} {}".format("Linha", "Posição", "Tipo", "Valor"))
     for tok in Lexer().tokenize(text):
-        print("{:^6} {:^9} {:<25} {}".format(
-            tok.lineno, tok.lexpos, tok.type, tok.value))
+        print(
+            "{:^6} {:^9} {:<25} {}".format(tok.lineno, tok.lexpos, tok.type, tok.value)
+        )
 
 
-@argh.arg('-m', '--mode', choices=['report', 'type', 'complete'])
-def tokenize(filename, mode='report'):
+@argh.arg("-m", "--mode", choices=["report", "type", "complete"])
+def tokenize(filename, mode="report"):
     executor = lexer_report
-    if mode == 'type':
+    if mode == "type":
         executor = lexer_print_type
-    elif mode == 'complete':
+    elif mode == "complete":
         executor = lexer_print_complete
 
     with open(filename, encoding="utf-8") as file:
@@ -66,16 +67,18 @@ def tokenize(filename, mode='report'):
     executor(text)
 
 
-@argh.arg('-s', '--start', help="the begin expression to execute the parser [see BNF file]")
-@argh.arg('-o', '--output', help="name of output file running on 'png' or 'dot' mode")
-@argh.arg('-m', '--mode', choices=['strtree', 'strclojure', 'png', 'dot', 'noop'])
-def parse(filename, start='programa', mode='strtree', output="tree", simplify=False):
+@argh.arg(
+    "-s", "--start", help="the begin expression to execute the parser [see BNF file]"
+)
+@argh.arg("-o", "--output", help="name of output file running on 'png' or 'dot' mode")
+@argh.arg("-m", "--mode", choices=["strtree", "strclojure", "png", "dot", "noop"])
+def parse(filename, start="programa", mode="strtree", output="tree", simplify=False):
     if not os.path.isfile(filename):
-        print('Error: File not found')
+        print("Error: File not found")
         return
 
-    if output == 'tree':
-        output = os.path.join(__dirname, 'outputs', output)
+    if output == "tree":
+        output = os.path.join(__dirname, "outputs", output)
 
     lexer = Lexer()
     parser = Parser(lexer, start=start)
@@ -87,25 +90,26 @@ def parse(filename, start='programa', mode='strtree', output="tree", simplify=Fa
 
     if ast is None:
         print(None)
-    elif mode == 'noop':
+    elif mode == "noop":
         pass
     else:
         if simplify:
             ast = simplify_tree(ast)
 
-        if mode == 'strtree':
+        if mode == "strtree":
             print(ast.str_tree())
-        elif mode == 'strclojure':
+        elif mode == "strclojure":
             text = ast.str_clojure()
             execute_clojure_formatter(text)
-        elif mode == 'png':
+        elif mode == "png":
             root = generate_anytree_tree(ast)
-            UniqueDotExporter(root).to_picture(output + '.png')
-        elif mode == 'dot':
+            UniqueDotExporter(root).to_picture(output + ".png")
+        elif mode == "dot":
             root = generate_anytree_tree(ast)
-            UniqueDotExporter(root).to_dotfile(output + '.dot')
+            UniqueDotExporter(root).to_dotfile(output + ".dot")
 
-def semantic(filename, start='programa'):
+
+def semantic(filename, start="programa"):
     lexer = Lexer()
     parser = Parser(lexer, start=start)
 
@@ -113,11 +117,50 @@ def semantic(filename, start='programa'):
         text = file.read()
 
     ast = parser.parse(text)
-    semantic_check(ast)
+    result = semantic_check(ast)
+    errors_count = len(result.errors)
+
+    print(f"Verificação Semantica encontrou {errors_count} erro{'' if errors_count == 1 else 's'}.")
+    if result.errors:
+        for e in result.errors:
+            print()
+            print(f">>> Erro: {e.name}")
+            if e.ctx.is_global():
+                print("\tErro encontrado no escopo \"global\".")
+            else:
+                scope_func_name = e.ctx.get_function_name()
+                print(f"\tErro encontrado na função \"{scope_func_name}\"")
+
+            var_name = e.info.get("variable")
+            if var_name:
+                print(f"\tNome da variável: \"{var_name}\"")
+            
+            func_name = e.info.get("function")
+            if func_name:
+                print(f"\tNome da função: \"{func_name}\"")
+            
+            len_params = e.info.get("length_parameters")
+            if len_params:
+                ex = len_params["expect"]
+                ex = f"{ex} parâmetro" if ex == 1 else f"{ex} parâmetros"
+                re = len_params["result"]
+                re = f"apenas {re} parâmetro" if re == 1 else f"{re} parâmetros"
+
+                print(f'\tEsperava {ex}, mas recebeu {re}.')
+            
+            typing = e.info.get("type_match")
+            if typing:
+                print(f'\tEsperava tipo {typing["expect"]}, mas recebeu {typing["result"]}')
+
+            typ = e.info.get("type")
+            if typ:
+                print(f'\tTipo atual {typ}.')
+
+            print("\t", e.get_message(), sep="")
 
 parser = argh.ArghParser()
 parser.add_commands([tokenize, parse, semantic])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser.dispatch()

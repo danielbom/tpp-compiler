@@ -19,11 +19,20 @@ def generate_anytree_tree(root):
 class Tree:
     def __init__(self, identifier, children=[], value=None):
         self.identifier = identifier
-        self.value = value
+        self._value = value
         self.children = children
+    
+    @property
+    def value(self):
+        if self._value:
+            return self._value
+        raise TypeError(f"Can't access value for this node Tree! {self}")
 
     def update_identifier(self, identifier):
-        return Tree(identifier, self.children, self.value)
+        return Tree(identifier, self.children, self._value)
+    
+    def update_children(self, children):
+        return Tree(self.identifier, children, self._value)
 
     def str_tree(self, indentation = 0):
         spaces = "  " * indentation

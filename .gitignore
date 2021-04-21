@@ -135,5 +135,4 @@ parsetab.py
 ./output.txt
 tmp/
 .vscode
-conflicts
 outputs/*

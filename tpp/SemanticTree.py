@@ -15,18 +15,35 @@ class SemanticTypes:
     ASSIGNMENT = "assignment"
     PARAMETER = "parameter"
     LITERAL = "literal"
+    POINTER = "pointer"
 
     WRITE = "write"
     READ = "read"
 
+    LITERAL_VARIABLE = "variable"
+    LITERAL_INTEGER = "integer"
+    LITERAL_FLOAT = "float"
+
 
 class AssignmentTypes:
-    INITIALIZE = 'initialize'
-    ADD = 'add'
-    SUBTRACT = 'subtract'
-    MULTIPLY = 'multiply'
-    DIVIDE = 'divide'
+    INITIALIZE = "initialize"
+    ADD = "add"
+    SUBTRACT = "subtract"
+    MULTIPLY = "multiply"
+    DIVIDE = "divide"
 
+
+class OperationTypes:
+    ADD = "add"
+    SUBTRACT = "subtract"
+    MULTIPLY = "multiply"
+    DIVIDE = "divide"
+    GRANTER = "granter"
+    LESS = "less"
+    GRANTER_EQUAL = "granter_equal"
+    LESS_EQUAL = "less_equal"
+    EQUAL = "equal"
+    DIFFERENT = "different"
 
 class Program:
     t = SemanticTypes.PROGRAM
@@ -38,11 +55,25 @@ class Program:
 class Variable:
     t = SemanticTypes.VARIABLE
 
-    def __init__(self, typing, name):
+    def __init__(self, typing, name, indexes, initialized):
         self.typing = typing
         self.name = name
-        self.initialized = False
-
+        self.indexes = indexes
+        self.initialized = initialized
+    
+    def get_type(self):
+        def map_index(i):
+            return f"[{'' if i.t == SemanticTypes.POINTER else i.value}]"
+        return self.typing + ''.join(map(map_index, self.indexes))
+    
+    def check_indexes(self):
+        def check_index(index):
+            if index.t == SemanticTypes.POINTER:
+                return True
+            if index.t == SemanticTypes.LITERAL_INTEGER:
+                return index.value > 0
+            return False
+        return all(map(check_index, self.indexes))
 
 class VarsDeclaration:
     t = SemanticTypes.VARS_DECLARATION
@@ -70,19 +101,11 @@ class FunctionDeclaration:
         self.body = body
 
 
-class FunctionParameter:
-    t = SemanticTypes.PARAMETER
-
-    def __init__(self, typing, name):
-        self.typing = typing
-        self.name = name
-
-
 class FunctionCall:
     t = SemanticTypes.FUNCTION_CALL
 
     def __init__(self, name, parameters):
-        self.name = name 
+        self.name = name
         self.parameters = parameters
 
 
@@ -127,13 +150,27 @@ class UnaryExpression:
         self.variable = variable
 
 
-class Literal:
-    t = SemanticTypes.LITERAL
+class LiteralVariable:
+    t = SemanticTypes.LITERAL_VARIABLE
 
-    def __init__(self, identifier, value, indexes = []):
-        self.identifier = identifier
-        self.value = value
+    def __init__(self, name, indexes=[]):
+        self.name = name
         self.indexes = indexes
+
+
+class LiteralInteger:
+    t = SemanticTypes.LITERAL_INTEGER
+
+    def __init__(self, value):
+        self.value = value
+
+
+class LiteralFloat:
+    t = SemanticTypes.LITERAL_FLOAT
+
+    def __init__(self, value):
+        self.value = value
+        
 
 class Write:
     t = SemanticTypes.WRITE
@@ -141,8 +178,12 @@ class Write:
     def __init__(self, expression):
         self.expression = expression
 
+
 class Read:
     t = SemanticTypes.READ
 
     def __init__(self, expression):
         self.expression = expression
+
+class Pointer:
+    t = SemanticTypes.POINTER

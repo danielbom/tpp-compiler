@@ -13,7 +13,7 @@ preeenche_vetor(inteiro: vetor[], inteiro: tamanho)
   até indice >= tamanho
 fim
 
-processa_vetor(inteiro: vetor[], inteiro: tamanho) 
+flutuante processa_vetor(inteiro: vetor[], inteiro: tamanho) 
   inteiro: indice
   inteiro: resultado
   indice := 0 
@@ -34,12 +34,12 @@ fim
 
 inteiro principal() 
   inteiro: tamanho
+  inteiro: vetor[5]
   tamanho := 5
-  inteiro: vetor[tamanho]
 
   preeenche_vetor(vetor, tamanho)
 
-  inteiro: resultado 
+  flutuante: resultado 
   resultado := processa_vetor(vetor, tamanho)
 
   escreva(resultado)
