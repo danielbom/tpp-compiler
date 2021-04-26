@@ -155,6 +155,15 @@ def semantic(filename, start="programa"):
             typ = e.info.get("type")
             if typ:
                 print(f'\tTipo atual {typ}.')
+            
+            dym = e.info.get("dimention_check")
+            if dym:
+                re = f"{dym['result']} dimensão" if dym["result"] == 1 else f"{dym['result']} dimensões"
+                print(f'\tEsperava acesso aproapriado a dimensão {dym["expect"]}, mas recebeu um acesso de {re}.')
+
+            idx = e.info.get("index_access")
+            if idx:
+                print(f'\tEsperava acesso aproapriado ao comprimento {idx["expect"]}, mas recebeu um acesso no índice {idx["result"]}.')
 
             print("\t", e.get_message(), sep="")
 

@@ -2,9 +2,10 @@ from tpp.Tree import Tree
 from tpp.SemanticTree import *
 
 
-T = SemanticTypes
+S = SemanticTypes
 A = AssignmentTypes
 O = OperationTypes
+T = TypeTypes
 
 
 class SemanticContext:
@@ -13,9 +14,14 @@ class SemanticContext:
 
         self.functions = {}
         self.variables = {}
-        self.sequence = []
 
         self.parent = parent
+
+    def declare_variable(self, decl):
+        self.variables[decl.name] = decl
+
+    def declare_function(self, decl):
+        self.functions[decl.name] = decl
 
     def variable_initialized(self, name):
         # Mark the variable as initialized in the closest context
@@ -58,14 +64,24 @@ class SemanticContext:
 class SemanticErrors:
     AST_MALFORMED = "AST_MALFORMED"
     MAIN_NOT_FOUND = "MAIN_NOT_FOUND"
-    TYPE_ERROR_ON_FUNCTION_CALL = "TYPE_ERROR_ON_FUNCTION_CALL"
+    CALL_UNDECLARED_FUNCTION = "CALL_UNDECLARED_FUNCTION"
+
     ASSIGN_VARIABLE_UNDECLARED = "ASSIGN_VARIABLE_UNDECLARED"
     USING_VARIABLE_UNDECLARED = "USING_VARIABLE_UNDECLARED"
     USING_VARIABLE_UNINITILIZED = "USING_VARIABLE_UNINITILIZED"
     MULTIPLE_VARIABLE_DECLARATION = "MULTIPLE_VARIABLE_DECLARATION"
-    CALL_UNDECLARED_FUNCTION = "CALL_UNDECLARED_FUNCTION"
-    WRONG_NUMBER_OF_PARAMETERS = "WRONG_NUMBER_OF_PARAMETERS"
+
     NEGATIVE_VECTOR_SIZE = "NEGATIVE_VECTOR_SIZE"
+
+    WRONG_NUMBER_OF_PARAMETERS = "WRONG_NUMBER_OF_PARAMETERS"
+    TYPE_ERROR_ON_FUNCTION_CALL = "TYPE_ERROR_ON_FUNCTION_CALL"
+    MULTIPLE_FUNCTION_DECLARATION = "MULTIPLE_FUNCTION_DECLARATION"
+    RETURN_VALUE_ON_VOID_FUNCTION = "RETURN_VALUE_ON_VOID_FUNCTION"
+    RETURN_NONE_ON_TYPED_FUNCTION = "RETURN_NONE_ON_TYPED_FUNCTION"
+
+    NO_INITIALIZE_STATIC_ARRAY = "NO_INITIALIZE_STATIC_ARRAY"
+    INVALID_ACESS_INDEX = "INVALID_ACESS_INDEX"
+    INVALID_INITIALIZATION_INDEX = "INVALID_INITIALIZATION_INDEX"
 
 
 SE = SemanticErrors
@@ -83,9 +99,14 @@ class SemanticError:
         "CALL_UNDECLARED_FUNCTION": "Tentativa de invocar uma função não declarada.",
         "WRONG_NUMBER_OF_PARAMETERS": "Quantidade incorreta de parametros.",
         "NEGATIVE_VECTOR_SIZE": "Tamanho de vetor não deve ser negativo ou nulo (0).",
+        "RETURN_VALUE_ON_VOID_FUNCTION": "Existem valores sendo retornados de uma função sem retorno.",
+        "RETURN_NONE_ON_TYPED_FUNCTION": "Nenhum valor esta sendo retornado de uma função tipada.",
+        "NO_INITIALIZE_STATIC_ARRAY": "Vetores estáticos não deve receber atribuições.",
+        "INVALID_ACESS_INDEX": "Tentativa de acessar um índice inválido.",
+        "INVALID_INITIALIZATION_INDEX": "Tentativa de inicialização de ponteiro invalida.",
     }
 
-    def __init__(self, name, ctx, info=None):
+    def __init__(self, name, ctx, info={}):
         self.name = name
         self.ctx = ctx
         self.info = info
@@ -105,7 +126,10 @@ class SemanticChecker:
         return bool(self.program_ctx.functions.get(name))
 
     def get_function(self, name):
-        return self.program_ctx.functions[name]
+        return self.program_ctx.functions.get(name)
+    
+    def get_global_variable(self, name):
+        return self.program_ctx.variables.get(name)
 
     # checkers
     def check_variables_type(self, x: Variable, y):
@@ -117,17 +141,80 @@ class SemanticChecker:
 
         for xi, yi in zip(x.indexes, y.indexes):
             if xi.t != yi.t:
-                if yi.t != T.POINTER:
+                if yi.t != S.POINTER:
                     return False
             else:
-                if yi.t == T.LITERAL_INTEGER:
+                if yi.t == S.LITERAL_INTEGER:
                     if yi.value != xi.value:
                         return False
 
         return True
 
+    def check_index_access(self, decl: LiteralVariable, ctx):
+        name = decl.name
+        var = ctx.get_variable(name)
+
+        x = len(var.indexes)
+        dim = len(decl.indexes)
+
+        if x < dim:
+            raise Exception("Unnimplemented")
+        elif x > dim:
+            raise Exception("Unnimplemented")
+        else:
+            # for i in range(x):
+            #     vi = var.get_index(i)
+            #     di = decl.indexes[i]
+            raise Exception("Unnimplemented")
+
+    def check_initialization(self, decl, ctx):
+        name = decl.variable.name
+        var = ctx.get_variable(name)
+        var_dim = len(var.indexes)
+        decl_var_dim = len(decl.variable.indexes)
+
+        if var_dim > decl_var_dim:
+            maybe_var = decl.expression
+            if maybe_var.t == S.LITERAL_VARIABLE:
+                var2 = ctx.get_variable(maybe_var.name)
+                print(f"{var2=}")
+                raise Exception("Unnimplemented")
+            else:
+                self.errors.append(
+                    SemanticError(
+                        SE.INVALID_INITIALIZATION_INDEX,
+                        ctx,
+                        {
+                            "variable": name,
+                        },
+                    )
+                )
+        elif var_dim < decl_var_dim:
+            self.errors.append(
+                SemanticError(
+                    SE.INVALID_ACESS_INDEX,
+                    ctx,
+                    {
+                        "variable": name,
+                        "dimention_check": {
+                            "expect": var_dim,
+                            "result": decl_var_dim,
+                        },
+                    },
+                )
+            )
+        else:
+            ctx.variable_initialized(name)
+            self.check_expression(decl.expression, ctx)
+
+            "TODO: check typing"
+
     def check_assignment(self, decl, ctx):
-        name = decl.variable
+        """
+        [ ]: Check literal integer less then index length
+        [ ]: Check if pointers are initialized
+        """
+        name = decl.variable.name
 
         if not ctx.variable_is_declared(name):
             # check variable declaration
@@ -138,32 +225,27 @@ class SemanticChecker:
                     {"variable": name, "assign": decl},
                 )
             )
-
-        if decl.assignment == A.INITIALIZE:
-            # collect variable initialization
-            ctx.variable_initialized(name)
-            self.check_expression(decl.expression, ctx)
-
-            "TODO: check typing"
-
-        elif not ctx.variable_is_initialized(name):
-            # check variable initialization
-            self.errors.append(
-                SemanticError(
-                    SE.USING_VARIABLE_UNINITILIZED,
-                    ctx,
-                    {"variable": name, "assign": decl},
-                )
-            )
         else:
-            self.check_expression(decl.expression, ctx)
+            if decl.assignment == A.INITIALIZE:
+                self.check_initialization(decl, ctx)
+            elif not ctx.variable_is_initialized(name):
+                # check variable initialization
+                self.errors.append(
+                    SemanticError(
+                        SE.USING_VARIABLE_UNINITILIZED,
+                        ctx,
+                        {"variable": name, "assign": decl},
+                    )
+                )
+            else:
+                self.check_expression(decl.expression, ctx)
 
     def check_expression(self, decl, ctx):
-        if decl.t == T.LITERAL_INTEGER:
+        if decl.t == S.LITERAL_INTEGER:
             pass
-        elif decl.t == T.LITERAL_FLOAT:
+        elif decl.t == S.LITERAL_FLOAT:
             pass
-        elif decl.t == T.LITERAL_VARIABLE:
+        elif decl.t == S.LITERAL_VARIABLE:
             name = decl.name
 
             if not ctx.variable_is_declared(name):
@@ -184,17 +266,45 @@ class SemanticChecker:
                         {"variable": name, "expression": decl},
                     )
                 )
-
-            for i in decl.indexes:
-                ...
-        elif decl.t == T.BINARY_EXPRESSION:
+            elif decl.indexes:
+                self.check_index_access(decl, ctx)
+                return
+                if var_dim != decl_var_dim:
+                    self.errors.append(
+                        SemanticError(
+                            SE.INVALID_ACESS_INDEX,
+                            ctx,
+                            {
+                                "variable": name,
+                                "dimention_check": {
+                                    "expect": var_dim,
+                                    "result": decl_var_dim,
+                                },
+                            },
+                        )
+                    )
+                else:
+                    for i, di in enumerate(decl.indexes):
+                        if di.t != S.LITERAL_INTEGER:
+                            continue
+                        vi = var.get_index(i)
+                        di = di.value
+                        if vi <= di:
+                            self.errors.append(
+                                SemanticError(
+                                    SE.INVALID_ACESS_INDEX,
+                                    ctx,
+                                    {"index_access": {"expect": vi, "result": di}},
+                                )
+                            )
+        elif decl.t == S.BINARY_EXPRESSION:
             self.check_expression(decl.first, ctx)
             self.check_expression(decl.second, ctx)
-        elif decl.t == T.BINARY_EXPRESSION:
+        elif decl.t == S.BINARY_EXPRESSION:
             self.check_expression(decl.variable, ctx)
-        elif decl.t == T.UNARY_EXPRESSION:
+        elif decl.t == S.UNARY_EXPRESSION:
             self.check_expression(decl.variable, ctx)
-        elif decl.t == T.FUNCTION_CALL:
+        elif decl.t == S.FUNCTION_CALL:
             self.check_function_call(decl, ctx)
         else:
             print(decl.__class__.__name__)
@@ -210,8 +320,12 @@ class SemanticChecker:
         ctx = SemanticContext(func_decl.name, outer_ctx)
 
         for p in func_decl.parameters:
-            # collect and shadow variable parameters
-            ctx.variables[p.name.name] = p
+            if self.get_function(p.name):
+                # variable shadow function declaration
+                raise Exception("Unnimplemented")
+            else:
+                # collect and shadow variable parameters
+                ctx.declare_variable(p)
 
         for decl in func_decl.body:
             self.dispatch_declaration(decl, ctx)
@@ -255,7 +369,6 @@ class SemanticChecker:
                         )
                     )
                 self.check_expression(p, ctx)
-            ctx.sequence.append(decl)
         else:
             self.errors.append(
                 SemanticError(
@@ -264,6 +377,54 @@ class SemanticChecker:
                     {"function": name},
                 )
             )
+
+    def check_declaration_vars(self, decl, ctx):
+        for v in decl.variables:
+            if ctx.variable_is_declared_local(v.name):
+                # check multiple variable declaration
+                self.errors.append(
+                    SemanticError(
+                        SE.MULTIPLE_VARIABLE_DECLARATION,
+                        ctx,
+                        {"variable": v.name},
+                    )
+                )
+            elif self.get_function(v.name):
+                # variable shadow function declaration
+                raise Exception("Unnimplemented")
+            else:
+                for i in v.indexes:
+                    if i.t == S.LITERAL_INTEGER and i.value <= 0:
+                        self.errors.append(
+                            SemanticError(
+                                SE.NEGATIVE_VECTOR_SIZE,
+                                ctx,
+                                {"variable": v.name, "type": v.get_type()},
+                            )
+                        )
+                    elif i.t == S.POINTER:
+                        continue
+
+                # collect variable declaration
+                ctx.declare_variable(v)
+
+    def check_return(self, decl, ctx):
+        func_name = ctx.get_function_name()
+        func: FunctionDeclaration = self.get_function(func_name)
+
+        if func.return_type == T.VOID:
+            if decl.expression is not None:
+                self.errors.append(
+                    SemanticError(SE.RETURN_VALUE_ON_VOID_FUNCTION, ctx, {})
+                )
+        elif decl.expression is None:
+            self.errors.append(
+                SemanticError(
+                    SE.RETURN_NONE_ON_TYPED_FUNCTION, ctx, {"type": func.return_type}
+                )
+            )
+        else:
+            self.check_expression(decl.expression, ctx)
 
     def dispatch_declaration(self, decl, ctx):
         """
@@ -277,58 +438,27 @@ class SemanticChecker:
         [X]: FUNCTION_CALL (check)
         [X]: VARS_DECLARATION (check, collect)
         """
-        if decl.t == T.FUNCTION_DECLARATION:
+        if decl.t == S.FUNCTION_DECLARATION:
             self.check_function(decl, ctx)
-        elif decl.t == T.VARS_DECLARATION:
-            for v in decl.variables:
-                if ctx.variable_is_declared_local(v.name):
-                    # check multiple variable declaration
-                    self.errors.append(
-                        SemanticError(
-                            SE.MULTIPLE_VARIABLE_DECLARATION,
-                            ctx,
-                            {"variable": v.name},
-                        )
-                    )
-                else:
-                    for i in v.indexes:
-                        if i.t == T.LITERAL_INTEGER and i.value <= 0:
-                            self.errors.append(
-                                SemanticError(
-                                    SE.NEGATIVE_VECTOR_SIZE,
-                                    ctx,
-                                    {"variable": v.name, "type": v.get_type()},
-                                )
-                            )
-                        elif i.t == T.POINTER:
-                            continue
-
-                    # collect variable declaration
-                    ctx.variables[v.name] = v
-                    ctx.sequence.append(decl)
-        elif decl.t == T.REPEAT_DECLARATION:
+        elif decl.t == S.VARS_DECLARATION:
+            self.check_declaration_vars(decl, ctx)
+        elif decl.t == S.REPEAT_DECLARATION:
             self.check_expression(decl.expression, ctx)
             self.check_body("repita", decl.body, ctx)
-            ctx.sequence.append(decl)
-        elif decl.t == T.IF_ELSE_DECLARATION:
+        elif decl.t == S.IF_ELSE_DECLARATION:
             self.check_expression(decl.if_expression, ctx)
             self.check_body("se", decl.if_body, ctx)
             self.check_body("senão", decl.else_body, ctx)
-            ctx.sequence.append(decl)
-        elif decl.t == T.ASSIGNMENT:
+        elif decl.t == S.ASSIGNMENT:
             self.check_assignment(decl, ctx)
-            ctx.sequence.append(decl)
-        elif decl.t == T.FUNCTION_CALL:
+        elif decl.t == S.FUNCTION_CALL:
             self.check_function_call(decl, ctx)
-        elif decl.t == T.READ:
+        elif decl.t == S.READ:
             self.check_expression(decl.expression, ctx)
-            ctx.sequence.append(decl)
-        elif decl.t == T.WRITE:
+        elif decl.t == S.WRITE:
             self.check_expression(decl.expression, ctx)
-            ctx.sequence.append(decl)
-        elif decl.t == T.RETURN_DECLARATION:
-            self.check_expression(decl.expression, ctx)
-            ctx.sequence.append(decl)
+        elif decl.t == S.RETURN_DECLARATION:
+            self.check_return(decl, ctx)
         else:
             print(decl.__class__.__name__)
             raise Exception("Unnimplemented")
@@ -345,7 +475,7 @@ class SemanticChecker:
 
         # collect all global functions and variables
         for decl in self.ast.declarations:
-            if decl.t == T.FUNCTION_DECLARATION:
+            if decl.t == S.FUNCTION_DECLARATION:
                 name = decl.name
 
                 if self.function_is_declared(name):
@@ -357,9 +487,12 @@ class SemanticChecker:
                             {"function": name},
                         )
                     )
+                elif self.get_global_variable(name):
+                    # function declaration shadow global variable
+                    raise Exception("Unnimplemented")
                 else:
                     # collect function declaration
-                    ctx.functions[name] = decl
+                    ctx.declare_function(decl)
             else:
                 self.dispatch_declaration(decl, ctx)
 
@@ -372,11 +505,9 @@ class SemanticChecker:
         if not self.function_is_declared(MAIN_NAME):
             # check declaration of the main function
             self.errors.append(SemanticError(SE.MAIN_NOT_FOUND, ctx))
-        else:
-            ctx.sequence.append(ctx.functions[MAIN_NAME])
 
     def check(self):
-        if self.ast and self.ast.t == T.PROGRAM:
+        if self.ast and self.ast.t == S.PROGRAM:
             self.check_program()
         else:
             self.errors.append(SemanticError(SE.AST_MALFORMED, ctx))
@@ -461,6 +592,12 @@ def simplify_tree(root):
 
 
 def semantic_preprocessor(root):
+    type_map = {
+        "flutuante": T.FLOAT,
+        "inteiro": T.INTEGER,
+        "texto": T.TEXT,
+        "vazio": T.VOID,
+    }
     assignment_map = {
         "ATRIBUICAO": A.INITIALIZE,
         "ADICAO_ATRIBUICAO": A.ADD,
@@ -500,11 +637,14 @@ def semantic_preprocessor(root):
             name, parameters = header.children
 
             # Transform values
-            return_type = return_type.value
+            return_type = type_map[return_type.value]
             name = name.value
+            
+            # parameters: [Tree] -> Gen<[Tree]> -> Gen<(string, LiteralVariable)> -> [Variable]
             parameters = [] if len(parameters.children) == 1 else parameters.children
-            parameters = ((p.children[0].value, rec(p.children[1])) for p in parameters)
-            parameters = [Variable(t, v, v.indexes, True) for t, v in parameters]
+            parameters = (p.children for p in parameters)
+            parameters = ((type_map[cs[0].value], rec(cs[1])) for cs in parameters)
+            parameters = [Variable(t, v.name, v.indexes, True) for t, v in parameters]
             body = [rec(c) for c in body.children]
 
             # Construct declaration
@@ -514,7 +654,7 @@ def semantic_preprocessor(root):
             typing, variables = node.children
 
             # Transform values
-            typing = typing.value
+            typing = type_map[typing.value]
             variables = (v.children for v in variables.children)
             variables = ((cs[0].value, list(map(rec, cs[1:]))) for cs in variables)
             variables = [
@@ -529,7 +669,7 @@ def semantic_preprocessor(root):
             variable, assignment, expression = node.children
 
             # Transform values
-            variable = variable.children[0].value
+            variable = rec(variable)
             assignment = assignment_map[assignment.identifier]
             expression = rec(expression)
 
@@ -562,11 +702,14 @@ def semantic_preprocessor(root):
             # Construct declaration
             return RepeatDeclaration(body, expression)
         if node.identifier == "retorna_declaracao":
-            # Extract values
-            expression = node.children[0]
+            if node.children:
+                # Extract values
+                expression = node.children[0]
 
-            # Transform values
-            expression = rec(expression)
+                # Transform values
+                expression = rec(expression)
+            else:
+                expression = None
 
             # Construct declaration
             return ReturnDeclaration(expression)
@@ -583,7 +726,7 @@ def semantic_preprocessor(root):
             # Transform values
             operation = operation_map[operation.identifier]
             expression = rec(expression)
-            if expression.t in [T.LITERAL_INTEGER, T.LITERAL_FLOAT]:
+            if expression.t in [S.LITERAL_INTEGER, S.LITERAL_FLOAT]:
                 expression.value = -expression.value
                 return expression
 

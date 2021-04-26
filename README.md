@@ -38,12 +38,23 @@ Use the following commands to see the helpers of the tpp program.
   * Receivies the stream of tokens and create the Syntax Tree (AST).
 
 - Semantic:
-  * Simplify the AST, removing unnecessaries nodes.
-  * Transform the AST into a specialized structure, preparing to generate the intermediate code.
-  * Check if 'principal' function exists.
-  * Check if variables are used after the declaration.
-  * Check if all called function has been declared.
-  * Check if has a return statement and the return type matches the value of the expression on the return statement.
+  * preprocessing:
+    * Simplify the AST, removing unnecessaries nodes.
+    * Transform the AST into a specialized structure, preparing to generate the intermediate code.
+  * functions:
+    * Check if 'principal' function exists.
+    * Check if has only 1 declaration by function.
+    * Check if all called function has been declared.
+    * Check if the parameters length matches.
+    * Check if typed function are return statement.
+    * Check if has a return statement and the return type matches the value of the expression on the return statement.
+  * variables:
+    * Check if has only 1 declaration of variables by context.
+    * Check if variables are declared.
+    * Check if variables are initialized.
+    * arrays:
+      * Check if index dimension are used correctly
+
 
 - Generator:
   * Generate the intermediate code.

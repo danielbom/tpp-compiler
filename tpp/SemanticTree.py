@@ -45,6 +45,14 @@ class OperationTypes:
     EQUAL = "equal"
     DIFFERENT = "different"
 
+
+class TypeTypes:
+    FLOAT = "float"
+    INTEGER = "integer"
+    TEXT = "text"
+    VOID = "void"
+
+
 class Program:
     t = SemanticTypes.PROGRAM
 
@@ -74,6 +82,14 @@ class Variable:
                 return index.value > 0
             return False
         return all(map(check_index, self.indexes))
+    
+    def get_index(self, i):
+        index = self.indexes[i]
+        if index.t == SemanticTypes.POINTER:
+            return index.length
+        if index.t == SemanticTypes.LITERAL_INTEGER:
+            return index.value
+
 
 class VarsDeclaration:
     t = SemanticTypes.VARS_DECLARATION
@@ -187,3 +203,7 @@ class Read:
 
 class Pointer:
     t = SemanticTypes.POINTER
+
+    def __init__(self):
+        self.initialized = False
+        self.length = 0
