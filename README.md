@@ -43,6 +43,7 @@ Use the following commands to see the helpers of the tpp program.
     * Transform the AST into a specialized structure, preparing to generate the intermediate code.
   * functions:
     * Check if 'principal' function exists.
+    * Check if has 'principal' call into the 'principal' function body.
     * Check if has only 1 declaration by function.
     * Check if all called function has been declared.
     * Check if the parameters length matches.

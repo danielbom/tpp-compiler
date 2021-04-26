@@ -120,52 +120,67 @@ def semantic(filename, start="programa"):
     result = semantic_check(ast)
     errors_count = len(result.errors)
 
-    print(f"Verificação Semantica encontrou {errors_count} erro{'' if errors_count == 1 else 's'}.")
-    if result.errors:
-        for e in result.errors:
-            print()
-            print(f">>> Erro: {e.name}")
-            if e.ctx.is_global():
-                print("\tErro encontrado no escopo \"global\".")
-            else:
-                scope_func_name = e.ctx.get_function_name()
-                print(f"\tErro encontrado na função \"{scope_func_name}\"")
+    print(
+        f"Verificação Semantica encontrou {errors_count} erro{'' if errors_count == 1 else 's'}."
+    )
+    for e in result.errors:
+        print()
+        print(f">>> Erro: {e.name}")
+        if e.ctx.is_global():
+            print('\tErro encontrado no escopo "global".')
+        else:
+            scope_func_name = e.ctx.get_function_name()
+            print(f'\tErro encontrado na função "{scope_func_name}"')
 
-            var_name = e.info.get("variable")
-            if var_name:
-                print(f"\tNome da variável: \"{var_name}\"")
-            
-            func_name = e.info.get("function")
-            if func_name:
-                print(f"\tNome da função: \"{func_name}\"")
-            
-            len_params = e.info.get("length_parameters")
-            if len_params:
-                ex = len_params["expect"]
-                ex = f"{ex} parâmetro" if ex == 1 else f"{ex} parâmetros"
-                re = len_params["result"]
-                re = f"apenas {re} parâmetro" if re == 1 else f"{re} parâmetros"
+        var_name = e.info.get("variable")
+        if var_name:
+            print(f'\tNome da variável: "{var_name}"')
 
-                print(f'\tEsperava {ex}, mas recebeu {re}.')
-            
-            typing = e.info.get("type_match")
-            if typing:
-                print(f'\tEsperava tipo {typing["expect"]}, mas recebeu {typing["result"]}')
+        func_name = e.info.get("function")
+        if func_name:
+            print(f'\tNome da função: "{func_name}"')
 
-            typ = e.info.get("type")
-            if typ:
-                print(f'\tTipo atual {typ}.')
-            
-            dym = e.info.get("dimention_check")
-            if dym:
-                re = f"{dym['result']} dimensão" if dym["result"] == 1 else f"{dym['result']} dimensões"
-                print(f'\tEsperava acesso aproapriado a dimensão {dym["expect"]}, mas recebeu um acesso de {re}.')
+        len_params = e.info.get("length_parameters")
+        if len_params:
+            ex = len_params["expect"]
+            ex = f"{ex} parâmetro" if ex == 1 else f"{ex} parâmetros"
+            re = len_params["result"]
+            re = f"apenas {re} parâmetro" if re == 1 else f"{re} parâmetros"
 
-            idx = e.info.get("index_access")
-            if idx:
-                print(f'\tEsperava acesso aproapriado ao comprimento {idx["expect"]}, mas recebeu um acesso no índice {idx["result"]}.')
+            print(f"\tEsperava {ex}, mas recebeu {re}.")
 
-            print("\t", e.get_message(), sep="")
+        typing = e.info.get("type_match")
+        if typing:
+            print(f'\tEsperava tipo {typing["expect"]}, mas recebeu {typing["result"]}')
+
+        typ = e.info.get("type")
+        if typ:
+            print(f"\tTipo atual {typ}.")
+
+        dym = e.info.get("dimention_check")
+        if dym:
+            re = (
+                f"{dym['result']} dimensão"
+                if dym["result"] == 1
+                else f"{dym['result']} dimensões"
+            )
+            print(
+                f'\tEsperava acesso aproapriado a dimensão {dym["expect"]}, mas recebeu um acesso de {re}.'
+            )
+
+        idx = e.info.get("index_access")
+        if idx:
+            print(
+                f'\tEsperava acesso aproapriado ao comprimento {idx["expect"]}, mas recebeu um acesso no índice {idx["result"]}.'
+            )
+
+        print("\t", e.get_message(), sep="")
+
+    for w in result.warnings:
+        print()
+        print(f">>> Alerta: {w.name}")
+
+        print("\t", w.get_message(), sep="")
 
 parser = argh.ArghParser()
 parser.add_commands([tokenize, parse, semantic])

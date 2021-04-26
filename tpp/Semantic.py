@@ -46,16 +46,16 @@ class SemanticContext:
         return self.parent is None
 
     def get_function_name(self):
-        if self.parent is None:
+        if self.is_global():
             return None
-        if self.parent.parent is None:
+        if self.parent.is_global():
             return self.scope
         return self.parent.get_function_name()
 
     def get_variable(self, name):
         if self.variable_is_declared_local(name):
             return self.variables[name]
-        elif self.parent is not None:
+        elif not self.parent.is_global():
             return self.parent.get_variable(name)
         else:
             return None
@@ -84,11 +84,16 @@ class SemanticErrors:
     INVALID_INITIALIZATION_INDEX = "INVALID_INITIALIZATION_INDEX"
 
 
+class SemanticWarnings:
+    MAIN_CALL_ITSELF = "MAIN_CALL_ITSELF"
+
+
 SE = SemanticErrors
+SW = SemanticWarnings
 
 
 class SemanticError:
-    ERROR_MAP = {
+    MESSAGE_MAP = {
         "AST_MALFORMED": "Erro fatal: Algum problema ocorreu e seu programa não pode ser construído.",
         "MAIN_NOT_FOUND": "Função principal não encontrada.",
         "TYPE_ERROR_ON_FUNCTION_CALL": "Chamada de função com tipos incompatíveis.",
@@ -112,13 +117,28 @@ class SemanticError:
         self.info = info
 
     def get_message(self):
-        return self.ERROR_MAP[self.name]
+        return self.MESSAGE_MAP[self.name]
+
+
+class SemanticWarning:
+    MESSAGE_MAP = {
+        "MAIN_CALL_ITSELF": "A função 'principal' está fazendo uma chamada para si mesma."
+    }
+
+    def __init__(self, name, ctx, info={}):
+        self.name = name
+        self.ctx = ctx
+        self.info = info
+
+    def get_message(self):
+        return self.MESSAGE_MAP[self.name]
 
 
 class SemanticChecker:
     def __init__(self, ast):
         self.ast = ast
         self.errors = []
+        self.warnings = []
         self.program_ctx = SemanticContext("global")
 
     # utils
@@ -127,7 +147,7 @@ class SemanticChecker:
 
     def get_function(self, name):
         return self.program_ctx.functions.get(name)
-    
+
     def get_global_variable(self, name):
         return self.program_ctx.variables.get(name)
 
@@ -463,7 +483,6 @@ class SemanticChecker:
             print(decl.__class__.__name__)
             raise Exception("Unnimplemented")
 
-    # checker start
     def check_program(self):
         """
         On program, check and collect:
@@ -505,7 +524,20 @@ class SemanticChecker:
         if not self.function_is_declared(MAIN_NAME):
             # check declaration of the main function
             self.errors.append(SemanticError(SE.MAIN_NOT_FOUND, ctx))
+        else:
+            main = self.get_function(MAIN_NAME)
 
+            stack = main.body[:]
+            while stack:
+                decl = stack.pop()
+                if decl.t == S.REPEAT_DECLARATION:
+                    stack.extend(decl.body)
+                elif decl.t == S.FUNCTION_CALL:
+                    if decl.name == MAIN_NAME:
+                        self.warnings.append(SemanticWarning(SW.MAIN_CALL_ITSELF, ctx))
+                        break
+
+    # checker start
     def check(self):
         if self.ast and self.ast.t == S.PROGRAM:
             self.check_program()
@@ -546,10 +578,8 @@ def simplify_tree(root):
         "soma",
         "produto",
     ]
+    EXTRACT_FIRST_CHILDREN = ["conjuncao_ou_disjuncao", "adiciona_ou_subtrai", "tipo"]
     VOID_TYPE = Tree("tipo", [Tree("VAZIO", value="vazio")])
-
-    def ignore_nodes(nodes):
-        return (c for c in nodes if c.identifier not in IGNORE_NODES)
 
     def rec(node: Tree):
         cs = node.children
@@ -562,9 +592,7 @@ def simplify_tree(root):
             if n == 2:
                 first, second = cs
 
-                if second.identifier == "conjuncao_ou_disjuncao":
-                    second = second.children[0]
-
+                second = rec(second)
                 op, second = second.children
                 first = rec(first)
                 second = rec(second)
@@ -577,10 +605,10 @@ def simplify_tree(root):
         if node.identifier in GO_AHEAD:
             return rec(cs[0])
 
-        if node.identifier == "tipo":
+        if node.identifier in EXTRACT_FIRST_CHILDREN:
             return node.children[0]
 
-        cs = ignore_nodes(cs)
+        cs = (c for c in cs if c.identifier not in IGNORE_NODES)
         cs = list(map(rec, cs))
 
         if node.identifier == "funcao_declaracao" and len(cs) == 2:
@@ -620,7 +648,6 @@ def semantic_preprocessor(root):
     root = simplify_tree(root)
 
     def rec(node: Tree):
-        error = "Unnimplemented"
         if node.identifier == "programa":
             # Extract values
             program_list = node.children[0]
@@ -639,7 +666,7 @@ def semantic_preprocessor(root):
             # Transform values
             return_type = type_map[return_type.value]
             name = name.value
-            
+
             # parameters: [Tree] -> Gen<[Tree]> -> Gen<(string, LiteralVariable)> -> [Variable]
             parameters = [] if len(parameters.children) == 1 else parameters.children
             parameters = (p.children for p in parameters)
@@ -763,7 +790,7 @@ def semantic_preprocessor(root):
 
             # Transform values
             name = name.value
-            parameters = [rec(p.children[0]) for p in parameters.children]
+            parameters = [rec(p.children[0]) for p in parameters.children if p.children]
 
             # Construct declaration
             return FunctionCall(name, parameters)
@@ -782,7 +809,7 @@ def semantic_preprocessor(root):
         print()
         print(node, node.children, node.value)
         print()
-        raise Exception(error)
+        raise Exception("Unnimplemented")
 
     return None if root is None else rec(root)
 

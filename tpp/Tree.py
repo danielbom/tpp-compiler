@@ -5,7 +5,7 @@ def generate_anytree_tree(root):
     def _rec(node, parent):
         anytree_node = Node(node.identifier, parent=parent)
         
-        if node.value:
+        if node._value:
             value = Node(node.value, parent=anytree_node)
         else:
             for c in node.children:
