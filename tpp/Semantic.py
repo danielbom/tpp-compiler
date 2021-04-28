@@ -55,7 +55,7 @@ class SemanticContext:
     def get_variable(self, name):
         if self.variable_is_declared_local(name):
             return self.variables[name]
-        elif not self.parent.is_global():
+        elif not self.is_global():
             return self.parent.get_variable(name)
         else:
             return None
@@ -65,10 +65,11 @@ class SemanticErrors:
     AST_MALFORMED = "AST_MALFORMED"
     MAIN_NOT_FOUND = "MAIN_NOT_FOUND"
     CALL_UNDECLARED_FUNCTION = "CALL_UNDECLARED_FUNCTION"
+    SYMBOL_ALREADY_EXISTS = "SYMBOL_ALREADY_EXISTS"
 
     ASSIGN_VARIABLE_UNDECLARED = "ASSIGN_VARIABLE_UNDECLARED"
     USING_VARIABLE_UNDECLARED = "USING_VARIABLE_UNDECLARED"
-    USING_VARIABLE_UNINITILIZED = "USING_VARIABLE_UNINITILIZED"
+    USING_VARIABLE_UNINITIALIZED = "USING_VARIABLE_UNINITIALIZED"
     MULTIPLE_VARIABLE_DECLARATION = "MULTIPLE_VARIABLE_DECLARATION"
 
     NEGATIVE_VECTOR_SIZE = "NEGATIVE_VECTOR_SIZE"
@@ -80,12 +81,15 @@ class SemanticErrors:
     RETURN_NONE_ON_TYPED_FUNCTION = "RETURN_NONE_ON_TYPED_FUNCTION"
 
     NO_INITIALIZE_STATIC_ARRAY = "NO_INITIALIZE_STATIC_ARRAY"
-    INVALID_ACESS_INDEX = "INVALID_ACESS_INDEX"
+    INDEX_OUT_OF_THE_RANGE = "INDEX_OUT_OF_THE_RANGE"
+    INVALID_INDEX_VALUE = "INVALID_INDEX_VALUE"
     INVALID_INITIALIZATION_INDEX = "INVALID_INITIALIZATION_INDEX"
 
 
 class SemanticWarnings:
     MAIN_CALL_ITSELF = "MAIN_CALL_ITSELF"
+    VARIABLE_NEVER_USED = "VARIABLE_NEVER_USED"
+    IMPLICIT_FLOAT = "IMPLICIT_FLOAT"
 
 
 SE = SemanticErrors
@@ -97,9 +101,10 @@ class SemanticError:
         "AST_MALFORMED": "Erro fatal: Algum problema ocorreu e seu programa não pode ser construído.",
         "MAIN_NOT_FOUND": "Função principal não encontrada.",
         "TYPE_ERROR_ON_FUNCTION_CALL": "Chamada de função com tipos incompatíveis.",
+        "SYMBOL_ALREADY_EXISTS": "Variáveis e funções com nomes iguais.",
         "ASSIGN_VARIABLE_UNDECLARED": "Tentativa de atribuição em uma variável não declarada.",
         "USING_VARIABLE_UNDECLARED": "Tentativa de utilização de uma variável não declarada.",
-        "USING_VARIABLE_UNINITILIZED": "Tentativa de utilização de uma variável não inicializada.",
+        "USING_VARIABLE_UNINITIALIZED": "Tentativa de utilização de uma variável não inicializada.",
         "MULTIPLE_VARIABLE_DECLARATION": "Multiplas declarações de uma variável no mesmo escopo.",
         "CALL_UNDECLARED_FUNCTION": "Tentativa de invocar uma função não declarada.",
         "WRONG_NUMBER_OF_PARAMETERS": "Quantidade incorreta de parametros.",
@@ -107,8 +112,9 @@ class SemanticError:
         "RETURN_VALUE_ON_VOID_FUNCTION": "Existem valores sendo retornados de uma função sem retorno.",
         "RETURN_NONE_ON_TYPED_FUNCTION": "Nenhum valor esta sendo retornado de uma função tipada.",
         "NO_INITIALIZE_STATIC_ARRAY": "Vetores estáticos não deve receber atribuições.",
-        "INVALID_ACESS_INDEX": "Tentativa de acessar um índice inválido.",
+        "INDEX_OUT_OF_THE_RANGE": "Tentativa de acessar um índice inválido.",
         "INVALID_INITIALIZATION_INDEX": "Tentativa de inicialização de ponteiro invalida.",
+        "INVALID_INDEX_VALUE": "Valor inválido para uso de índice e declaração de vetor.",
     }
 
     def __init__(self, name, ctx, info={}):
@@ -122,7 +128,9 @@ class SemanticError:
 
 class SemanticWarning:
     MESSAGE_MAP = {
-        "MAIN_CALL_ITSELF": "A função 'principal' está fazendo uma chamada para si mesma."
+        "MAIN_CALL_ITSELF": "A função 'principal' está fazendo uma chamada para si mesma.",
+        "VARIABLE_NEVER_USED": "A variável foi declarada mas nunca utilizada.",
+        "IMPLICIT_FLOAT": "Coerção implícita de tipos",
     }
 
     def __init__(self, name, ctx, info={}):
@@ -142,6 +150,16 @@ class SemanticChecker:
         self.program_ctx = SemanticContext("global")
 
     # utils
+    def iterate_over_body(self, body):
+        for decl in body:
+            if decl.t == S.IF_ELSE_DECLARATION:
+                yield from self.iterate_over_body(decl.if_body)
+                yield from self.iterate_over_body(decl.else_body)
+            elif decl.t == S.REPEAT_DECLARATION:
+                yield from self.iterate_over_body(decl.body)
+            else:
+                yield decl
+
     def function_is_declared(self, name):
         return bool(self.program_ctx.functions.get(name))
 
@@ -152,6 +170,29 @@ class SemanticChecker:
         return self.program_ctx.variables.get(name)
 
     # checkers
+    def check_function_main_exists(self):
+        ctx = self.program_ctx
+
+        MAIN_NAME = "principal"
+        if not self.function_is_declared(MAIN_NAME):
+            # check declaration of the main function
+            self.errors.append(SemanticError(SE.MAIN_NOT_FOUND, ctx))
+        else:
+            main = self.get_function(MAIN_NAME)
+
+            calls = self.iterate_over_body(main.body)
+            calls = (d for d in calls if d.t == S.FUNCTION_CALL)
+
+            if any(d.name == MAIN_NAME for d in calls):
+                self.warnings.append(SemanticWarning(SW.MAIN_CALL_ITSELF, ctx))
+
+    def check_variable_never_used(self, ctx):
+        for v in ctx.variables.values():
+            if not v.initialized:
+                self.warnings.append(
+                    SemanticWarning(SW.VARIABLE_NEVER_USED, ctx, {"variable": v.name})
+                )
+
     def check_variables_type(self, x: Variable, y):
         xn = len(x.indexes)
         yn = len(x.indexes)
@@ -182,9 +223,11 @@ class SemanticChecker:
         elif x > dim:
             raise Exception("Unnimplemented")
         else:
-            # for i in range(x):
-            #     vi = var.get_index(i)
-            #     di = decl.indexes[i]
+            for i in range(x):
+                vi = var.get_index(i)
+                di = decl.indexes[i]
+                print(f"{vi=}")
+                print(f"{di=}")
             raise Exception("Unnimplemented")
 
     def check_initialization(self, decl, ctx):
@@ -212,7 +255,7 @@ class SemanticChecker:
         elif var_dim < decl_var_dim:
             self.errors.append(
                 SemanticError(
-                    SE.INVALID_ACESS_INDEX,
+                    SE.INVALID_ACCESS_INDEX,
                     ctx,
                     {
                         "variable": name,
@@ -225,16 +268,16 @@ class SemanticChecker:
             )
         else:
             ctx.variable_initialized(name)
-            self.check_expression(decl.expression, ctx)
 
             "TODO: check typing"
 
     def check_assignment(self, decl, ctx):
         """
-        [ ]: Check literal integer less then index length
+        [X]: Check literal integer less then index length
         [ ]: Check if pointers are initialized
         """
         name = decl.variable.name
+        self.check_expression(decl.expression, ctx)
 
         if not ctx.variable_is_declared(name):
             # check variable declaration
@@ -252,13 +295,11 @@ class SemanticChecker:
                 # check variable initialization
                 self.errors.append(
                     SemanticError(
-                        SE.USING_VARIABLE_UNINITILIZED,
+                        SE.USING_VARIABLE_UNINITIALIZED,
                         ctx,
                         {"variable": name, "assign": decl},
                     )
                 )
-            else:
-                self.check_expression(decl.expression, ctx)
 
     def check_expression(self, decl, ctx):
         if decl.t == S.LITERAL_INTEGER:
@@ -281,7 +322,7 @@ class SemanticChecker:
                 # check variable initialization
                 self.errors.append(
                     SemanticError(
-                        SE.USING_VARIABLE_UNINITILIZED,
+                        SE.USING_VARIABLE_UNINITIALIZED,
                         ctx,
                         {"variable": name, "expression": decl},
                     )
@@ -292,7 +333,7 @@ class SemanticChecker:
                 if var_dim != decl_var_dim:
                     self.errors.append(
                         SemanticError(
-                            SE.INVALID_ACESS_INDEX,
+                            SE.INVALID_ACCESS_INDEX,
                             ctx,
                             {
                                 "variable": name,
@@ -312,7 +353,7 @@ class SemanticChecker:
                         if vi <= di:
                             self.errors.append(
                                 SemanticError(
-                                    SE.INVALID_ACESS_INDEX,
+                                    SE.INVALID_ACCESS_INDEX,
                                     ctx,
                                     {"index_access": {"expect": vi, "result": di}},
                                 )
@@ -336,10 +377,12 @@ class SemanticChecker:
         for decl in body:
             self.dispatch_declaration(decl, ctx)
 
-    def check_function(self, func_decl, outer_ctx):
-        ctx = SemanticContext(func_decl.name, outer_ctx)
+        self.check_variable_never_used(ctx)
 
-        for p in func_decl.parameters:
+    def check_function(self, func, outer_ctx):
+        ctx = SemanticContext(func.name, outer_ctx)
+
+        for p in func.parameters:
             if self.get_function(p.name):
                 # variable shadow function declaration
                 raise Exception("Unnimplemented")
@@ -347,8 +390,30 @@ class SemanticChecker:
                 # collect and shadow variable parameters
                 ctx.declare_variable(p)
 
-        for decl in func_decl.body:
+        for decl in func.body:
             self.dispatch_declaration(decl, ctx)
+
+        self.check_variable_never_used(ctx)
+
+        calls = self.iterate_over_body(func.body)
+        calls = [d for d in calls if d.t == S.RETURN_DECLARATION]
+
+        if func.return_type == T.VOID:
+            if calls:
+                self.errors.append(
+                    SemanticError(
+                        SE.RETURN_VALUE_ON_VOID_FUNCTION, ctx, {"function": func.name}
+                    )
+                )
+        else:
+            if not calls:
+                self.errors.append(
+                    SemanticError(
+                        SE.RETURN_NONE_ON_TYPED_FUNCTION,
+                        ctx,
+                        {"type": func.return_type},
+                    )
+                )
 
     def check_function_call(self, decl, ctx):
         name = decl.name
@@ -373,22 +438,76 @@ class SemanticChecker:
                 )
 
             for p, dp in zip(decl.parameters, func_decl.parameters):
-                var = ctx.get_variable(p.name)
-                if not self.check_variables_type(var, dp):
-                    self.errors.append(
-                        SemanticError(
-                            SE.TYPE_ERROR_ON_FUNCTION_CALL,
-                            ctx,
-                            {
-                                "variable": p.name,
-                                "type_match": {
-                                    "expect": dp.get_type(),
-                                    "result": var.get_type(),
+                if p.t == S.BINARY_EXPRESSION:
+                    self.check_expression(p, ctx)
+                elif p.t == S.LITERAL_VARIABLE:
+                    var = ctx.get_variable(p.name)
+
+                    if not self.check_variables_type(var, dp):
+                        self.errors.append(
+                            SemanticError(
+                                SE.TYPE_ERROR_ON_FUNCTION_CALL,
+                                ctx,
+                                {
+                                    "variable": p.name,
+                                    "type_match": {
+                                        "expect": dp.get_type(),
+                                        "result": var.get_type(),
+                                    },
                                 },
-                            },
+                            )
                         )
-                    )
-                self.check_expression(p, ctx)
+                elif p.t == S.LITERAL_INTEGER:
+                    if dp.typing != T.INTEGER:
+                        self.warnings.append(
+                            SemanticWarning(
+                                SW.IMPLICIT_FLOAT,
+                                ctx,
+                                {
+                                    "variable": dp.name,
+                                    "type_match": {
+                                        "expect": dp.typing,
+                                        "result": "inteiro",
+                                    },
+                                },
+                            )
+                        )
+                elif p.t == S.LITERAL_FLOAT:
+                    if dp.typing != T.FLOAT:
+                        self.warnings.append(
+                            SemanticWarning(
+                                SW.IMPLICIT_FLOAT,
+                                ctx,
+                                {
+                                    "variable": dp.name,
+                                    "type_match": {
+                                        "expect": dp.typing,
+                                        "result": "flutuante",
+                                    },
+                                },
+                            )
+                        )
+                elif p.t == S.FUNCTION_CALL:
+                    if self.function_is_declared(p.name):
+                        func = self.get_function(p.name)
+                        if func.return_type != dp.typing:
+                            self.warnings.append(
+                                SemanticWarning(
+                                    SW.IMPLICIT_FLOAT,
+                                    ctx,
+                                    {
+                                        "variable": dp.name,
+                                        "type_match": {
+                                            "expect": dp.typing,
+                                            "result": func.return_type,
+                                        },
+                                    },
+                                )
+                            )
+                else:
+                    print(dp.typing)
+                    print(p)
+                    raise Exception("Unnimplemented")
         else:
             self.errors.append(
                 SemanticError(
@@ -409,15 +528,30 @@ class SemanticChecker:
                         {"variable": v.name},
                     )
                 )
-            elif self.get_function(v.name):
-                # variable shadow function declaration
-                raise Exception("Unnimplemented")
+            elif self.function_is_declared(v.name):
+                self.error.append(
+                    SemanticError(
+                        SE.SYMBOL_ALREADY_EXISTS,
+                        ctx,
+                        {
+                            "variable": v.name,
+                        },
+                    )
+                )
             else:
                 for i in v.indexes:
                     if i.t == S.LITERAL_INTEGER and i.value <= 0:
                         self.errors.append(
                             SemanticError(
                                 SE.NEGATIVE_VECTOR_SIZE,
+                                ctx,
+                                {"variable": v.name, "type": v.get_type()},
+                            )
+                        )
+                    elif i.t == S.LITERAL_FLOAT:
+                        self.errors.append(
+                            SemanticError(
+                                SE.INVALID_INDEX_VALUE,
                                 ctx,
                                 {"variable": v.name, "type": v.get_type()},
                             )
@@ -435,7 +569,9 @@ class SemanticChecker:
         if func.return_type == T.VOID:
             if decl.expression is not None:
                 self.errors.append(
-                    SemanticError(SE.RETURN_VALUE_ON_VOID_FUNCTION, ctx, {})
+                    SemanticError(
+                        SE.RETURN_VALUE_ON_VOID_FUNCTION, ctx, {"function": func_name}
+                    )
                 )
         elif decl.expression is None:
             self.errors.append(
@@ -520,22 +656,8 @@ class SemanticChecker:
         for decl in ctx.functions.values():
             self.check_function(decl, ctx)
 
-        MAIN_NAME = "principal"
-        if not self.function_is_declared(MAIN_NAME):
-            # check declaration of the main function
-            self.errors.append(SemanticError(SE.MAIN_NOT_FOUND, ctx))
-        else:
-            main = self.get_function(MAIN_NAME)
-
-            stack = main.body[:]
-            while stack:
-                decl = stack.pop()
-                if decl.t == S.REPEAT_DECLARATION:
-                    stack.extend(decl.body)
-                elif decl.t == S.FUNCTION_CALL:
-                    if decl.name == MAIN_NAME:
-                        self.warnings.append(SemanticWarning(SW.MAIN_CALL_ITSELF, ctx))
-                        break
+        self.check_variable_never_used(ctx)
+        self.check_function_main_exists()
 
     # checker start
     def check(self):

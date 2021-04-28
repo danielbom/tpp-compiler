@@ -119,10 +119,18 @@ def semantic(filename, start="programa"):
     ast = parser.parse(text)
     result = semantic_check(ast)
     errors_count = len(result.errors)
+    warnings_count = len(result.warnings)
 
-    print(
-        f"Verificação Semantica encontrou {errors_count} erro{'' if errors_count == 1 else 's'}."
-    )
+    if errors_count:
+        e = errors_count
+        es = f"{e} erro" if e == 1 else f"{e} erros"
+        print(f"Verificação Semantica encontrou {es}.")
+
+    if warnings_count:
+        w = warnings_count
+        ws = f"{w} alerta" if w == 1 else f"{w} alertas"
+        print(f"Verificação Semantica encontrou {ws}.")
+
     for e in result.errors:
         print()
         print(f">>> Erro: {e.name}")
@@ -180,7 +188,12 @@ def semantic(filename, start="programa"):
         print()
         print(f">>> Alerta: {w.name}")
 
+        var_name = w.info.get("variable")
+        if var_name:
+            print(f'\tNome da variável: "{var_name}"')
+
         print("\t", w.get_message(), sep="")
+
 
 parser = argh.ArghParser()
 parser.add_commands([tokenize, parse, semantic])
