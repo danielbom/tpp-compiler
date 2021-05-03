@@ -8,6 +8,11 @@ class SemanticTypes:
     REPEAT_DECLARATION = "repeat_declaration"
     RETURN_DECLARATION = "return_declaration"
 
+    BINARY_EXPRESSION_LAZY = "binary_expression_lazy"
+    UNARY_EXPRESSION_LAZY = "unary_expression_lazy"
+    LITERAL_VARIABLE_LAZY = "literal_variable_lazy"
+    FUNCTION_CALL_LAZY = "function_call_lazy"
+
     BINARY_EXPRESSION = "binary_expression"
     UNARY_EXPRESSION = "unary_expression"
 
@@ -20,9 +25,10 @@ class SemanticTypes:
     WRITE = "write"
     READ = "read"
 
-    LITERAL_VARIABLE = "variable"
-    LITERAL_INTEGER = "integer"
-    LITERAL_FLOAT = "float"
+    LITERAL_CHARACTERS = "literal_characters"
+    LITERAL_VARIABLE = "literal_variable"
+    LITERAL_INTEGER = "literal_integer"
+    LITERAL_FLOAT = "literal_float"
 
 
 class AssignmentTypes:
@@ -53,6 +59,8 @@ class TypeTypes:
     VOID = "void"
 
 
+# Specialized Types 
+
 class Program:
     t = SemanticTypes.PROGRAM
 
@@ -68,12 +76,13 @@ class Variable:
         self.name = name
         self.indexes = indexes
         self.initialized = initialized
-    
+
     def get_type(self):
         def map_index(i):
             return f"[{'' if i.t == SemanticTypes.POINTER else i.value}]"
-        return self.typing + ''.join(map(map_index, self.indexes))
-    
+
+        return self.typing + "".join(map(map_index, self.indexes))
+
     def check_indexes(self):
         def check_index(index):
             if index.t == SemanticTypes.POINTER:
@@ -81,8 +90,9 @@ class Variable:
             if index.t == SemanticTypes.LITERAL_INTEGER:
                 return index.value > 0
             return False
+
         return all(map(check_index, self.indexes))
-    
+
     def get_index(self, i):
         index = self.indexes[i]
         if index.t == SemanticTypes.POINTER:
@@ -98,15 +108,6 @@ class VarsDeclaration:
         self.variables = variables
 
 
-class AssignmentDeclaration:
-    t = SemanticTypes.ASSIGNMENT
-
-    def __init__(self, variable, assignment, expression):
-        self.variable = variable
-        self.assignment = assignment
-        self.expression = expression
-
-
 class FunctionDeclaration:
     t = SemanticTypes.FUNCTION_DECLARATION
 
@@ -117,10 +118,85 @@ class FunctionDeclaration:
         self.body = body
 
 
+class AssignmentDeclaration:
+    t = SemanticTypes.ASSIGNMENT
+
+    def __init__(self, variable, assignment, expression):
+        self.variable = variable
+        self.assignment = assignment
+        self.expression = expression
+
+
+class Write:
+    t = SemanticTypes.WRITE
+
+    def __init__(self, expression):
+        self.expression = expression
+
+
+class Read:
+    t = SemanticTypes.READ
+
+    def __init__(self, expression):
+        self.expression = expression
+
+
+class Pointer:
+    t = SemanticTypes.POINTER
+
+    def __init__(self):
+        self.initialized = False
+        self.length = 0
+
+
+# Lazy Expressions
+
+class FunctionCallLazy:
+    t = SemanticTypes.FUNCTION_CALL_LAZY
+
+    def __init__(self, name, parameters):
+        self.name = name
+        self.parameters = parameters
+    
+    def set_typing(self, typing):
+        return FunctionCall(typing, self.name, self.parameters)
+
+
+class BinaryExpressionLazy:
+    t = SemanticTypes.BINARY_EXPRESSION_LAZY
+
+    def __init__(self, operation, first, second):
+        self.operation = operation
+        self.first = first
+        self.second = second
+
+
+class UnaryExpressionLazy:
+    t = SemanticTypes.UNARY_EXPRESSION_LAZY
+
+    def __init__(self, operation, variable):
+        self.operation = operation
+        self.variable = variable
+
+
+class LiteralVariableLazy:
+    t = SemanticTypes.LITERAL_VARIABLE_LAZY
+
+    def __init__(self, name, indexes):
+        self.name = name
+        self.indexes = indexes
+    
+    def set_typing(self, typing):
+        return LiteralVariable(typing, self.name, self.indexes)
+
+
+# Expressions
+
 class FunctionCall:
     t = SemanticTypes.FUNCTION_CALL
 
-    def __init__(self, name, parameters):
+    def __init__(self, typing, name, parameters):
+        self.typing = typing
         self.name = name
         self.parameters = parameters
 
@@ -152,24 +228,27 @@ class ReturnDeclaration:
 class BinaryExpression:
     t = SemanticTypes.BINARY_EXPRESSION
 
-    def __init__(self, operation, first, second):
+    def __init__(self, operation, first, second, typing):
         self.operation = operation
         self.first = first
         self.second = second
+        self.typing = typing
 
 
 class UnaryExpression:
     t = SemanticTypes.UNARY_EXPRESSION
 
-    def __init__(self, operation, variable):
+    def __init__(self, operation, variable, typing):
         self.operation = operation
         self.variable = variable
+        self.typing = typing
 
 
 class LiteralVariable:
     t = SemanticTypes.LITERAL_VARIABLE
 
-    def __init__(self, name, indexes=[]):
+    def __init__(self, typing, name, indexes):
+        self.typing = typing
         self.name = name
         self.indexes = indexes
 
@@ -179,6 +258,7 @@ class LiteralInteger:
 
     def __init__(self, value):
         self.value = value
+        self.typing = TypeTypes.INTEGER
 
 
 class LiteralFloat:
@@ -186,24 +266,13 @@ class LiteralFloat:
 
     def __init__(self, value):
         self.value = value
-        
-
-class Write:
-    t = SemanticTypes.WRITE
-
-    def __init__(self, expression):
-        self.expression = expression
+        self.typing = TypeTypes.FLOAT
 
 
-class Read:
-    t = SemanticTypes.READ
+class LiteralCharacters:
+    t = SemanticTypes.LITERAL_CHARACTERS
 
-    def __init__(self, expression):
-        self.expression = expression
+    def __init__(self, value):
+        self.value = value
+        self.typing = TypeTypes.TEXT
 
-class Pointer:
-    t = SemanticTypes.POINTER
-
-    def __init__(self):
-        self.initialized = False
-        self.length = 0
