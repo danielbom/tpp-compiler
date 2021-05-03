@@ -37,7 +37,7 @@ class Tree:
     def str_tree(self, indentation = 0):
         spaces = "  " * indentation
 
-        if self.value is None:
+        if self._value is None:
             s = spaces + f"({indentation}, {self.identifier})"
         else:
             s = spaces + f"({indentation}, {self.identifier}, \"{self.value}\")"

@@ -15,7 +15,11 @@ class SemanticContext:
         self.functions = {}
         self.variables = {}
 
+        self.children = []
         self.parent = parent
+
+        if parent:
+            self.parent.children.append(self)
 
     def declare_variable(self, decl):
         self.variables[decl.name] = decl
@@ -219,16 +223,18 @@ class SemanticChecker:
         dim = len(decl.indexes)
 
         if x < dim:
-            raise Exception("Unnimplemented")
+            raise Exception("Unimplemented")
         elif x > dim:
-            raise Exception("Unnimplemented")
+            raise Exception("Unimplemented")
+        elif x == 0:
+            pass
         else:
             for i in range(x):
                 vi = var.get_index(i)
                 di = decl.indexes[i]
                 print(f"{vi=}")
                 print(f"{di=}")
-            raise Exception("Unnimplemented")
+            # raise Exception("Unimplemented")
 
     def check_initialization(self, decl, ctx):
         name = decl.variable.name
@@ -241,7 +247,7 @@ class SemanticChecker:
             if maybe_var.t == S.LITERAL_VARIABLE:
                 var2 = ctx.get_variable(maybe_var.name)
                 print(f"{var2=}")
-                raise Exception("Unnimplemented")
+                raise Exception("Unimplemented")
             else:
                 self.errors.append(
                     SemanticError(
@@ -361,15 +367,15 @@ class SemanticChecker:
         elif decl.t == S.BINARY_EXPRESSION:
             self.check_expression(decl.first, ctx)
             self.check_expression(decl.second, ctx)
-        elif decl.t == S.BINARY_EXPRESSION:
-            self.check_expression(decl.variable, ctx)
         elif decl.t == S.UNARY_EXPRESSION:
             self.check_expression(decl.variable, ctx)
         elif decl.t == S.FUNCTION_CALL:
             self.check_function_call(decl, ctx)
         else:
             print(decl.__class__.__name__)
-            raise Exception("Unnimplemented")
+            raise Exception("Unimplemented")
+
+        return decl
 
     def check_body(self, scope, body, outer_ctx):
         ctx = SemanticContext(scope, outer_ctx)
@@ -507,7 +513,7 @@ class SemanticChecker:
                 else:
                     print(dp.typing)
                     print(p)
-                    raise Exception("Unnimplemented")
+                    raise Exception("Unimplemented")
         else:
             self.errors.append(
                 SemanticError(
@@ -728,7 +734,7 @@ def simplify_tree(root):
             return rec(cs[0])
 
         if node.identifier in EXTRACT_FIRST_CHILDREN:
-            return node.children[0]
+            return rec(node.children[0])
 
         cs = (c for c in cs if c.identifier not in IGNORE_NODES)
         cs = list(map(rec, cs))
@@ -804,6 +810,8 @@ def semantic_preprocessor(root):
 
             # Transform values
             typing = type_map[typing.value]
+
+            # variables: Gen<[Tree]> -> Gen<(string, [Tree])> -> [Variable]
             variables = (v.children for v in variables.children)
             variables = ((cs[0].value, list(map(rec, cs[1:]))) for cs in variables)
             variables = [
@@ -924,14 +932,16 @@ def semantic_preprocessor(root):
         if node.identifier == "NUMERO_INTEIRO":
             return LiteralInteger(int(node.value))
         if node.identifier == "ID":
-            return LiteralVariable(node.value)
+            return LiteralVariable(node.value, [])
+        if node.identifier == "CARACTERES":
+            return LiteralCharacters(node.value)
 
         print()
         print(node.str_tree())
         print()
         print(node, node.children, node.value)
         print()
-        raise Exception("Unnimplemented")
+        raise Exception("Unimplemented")
 
     return None if root is None else rec(root)
 
