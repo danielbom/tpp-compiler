@@ -53,71 +53,7 @@ def lexer_report(text):
         )
 
 
-@argh.arg("-m", "--mode", choices=["report", "type", "complete"])
-def tokenize(filename, mode="report"):
-    executor = lexer_report
-    if mode == "type":
-        executor = lexer_print_type
-    elif mode == "complete":
-        executor = lexer_print_complete
-
-    with open(filename, encoding="utf-8") as file:
-        text = file.read()
-
-    executor(text)
-
-
-@argh.arg(
-    "-s", "--start", help="the begin expression to execute the parser [see BNF file]"
-)
-@argh.arg("-o", "--output", help="name of output file running on 'png' or 'dot' mode")
-@argh.arg("-m", "--mode", choices=["strtree", "strclojure", "png", "dot", "noop"])
-def parse(filename, start="programa", mode="strtree", output="tree", simplify=False):
-    if not os.path.isfile(filename):
-        print("Error: File not found")
-        return
-
-    if output == "tree":
-        output = os.path.join(__dirname, "outputs", output)
-
-    lexer = Lexer()
-    parser = Parser(lexer, start=start)
-
-    with open(filename, encoding="utf-8") as file:
-        text = file.read()
-
-    ast = parser.parse(text)
-
-    if ast is None:
-        print(None)
-    elif mode == "noop":
-        pass
-    else:
-        if simplify:
-            ast = simplify_tree(ast)
-
-        if mode == "strtree":
-            print(ast.str_tree())
-        elif mode == "strclojure":
-            text = ast.str_clojure()
-            execute_clojure_formatter(text)
-        elif mode == "png":
-            root = generate_anytree_tree(ast)
-            UniqueDotExporter(root).to_picture(output + ".png")
-        elif mode == "dot":
-            root = generate_anytree_tree(ast)
-            UniqueDotExporter(root).to_dotfile(output + ".dot")
-
-
-def semantic(filename, start="programa"):
-    lexer = Lexer()
-    parser = Parser(lexer, start=start)
-
-    with open(filename, encoding="utf-8") as file:
-        text = file.read()
-
-    ast = parser.parse(text)
-    result = semantic_check(ast)
+def semantic_log(result):
     errors_count = len(result.errors)
     warnings_count = len(result.warnings)
 
@@ -193,6 +129,74 @@ def semantic(filename, start="programa"):
             print(f'\tNome da variável: "{var_name}"')
 
         print("\t", w.get_message(), sep="")
+
+
+@argh.arg("-m", "--mode", choices=["report", "type", "complete"])
+def tokenize(filename, mode="report"):
+    executor = lexer_report
+    if mode == "type":
+        executor = lexer_print_type
+    elif mode == "complete":
+        executor = lexer_print_complete
+
+    with open(filename, encoding="utf-8") as file:
+        text = file.read()
+
+    executor(text)
+
+
+@argh.arg(
+    "-s", "--start", help="the begin expression to execute the parser [see BNF file]"
+)
+@argh.arg("-o", "--output", help="name of output file running on 'png' or 'dot' mode")
+@argh.arg("-m", "--mode", choices=["strtree", "strclojure", "png", "dot", "noop"])
+def parse(filename, start="programa", mode="strtree", output="tree", simplify=False):
+    if not os.path.isfile(filename):
+        print("Error: File not found")
+        return
+
+    if output == "tree":
+        output = os.path.join(__dirname, "outputs", output)
+
+    lexer = Lexer()
+    parser = Parser(lexer, start=start)
+
+    with open(filename, encoding="utf-8") as file:
+        text = file.read()
+
+    ast = parser.parse(text)
+
+    if ast is None:
+        print(None)
+    elif mode == "noop":
+        pass
+    else:
+        if simplify:
+            ast = simplify_tree(ast)
+
+        if mode == "strtree":
+            print(ast.str_tree())
+        elif mode == "strclojure":
+            text = ast.str_clojure()
+            execute_clojure_formatter(text)
+        elif mode == "png":
+            root = generate_anytree_tree(ast)
+            UniqueDotExporter(root).to_picture(output + ".png")
+        elif mode == "dot":
+            root = generate_anytree_tree(ast)
+            UniqueDotExporter(root).to_dotfile(output + ".dot")
+
+
+def semantic(filename, start="programa"):
+    lexer = Lexer()
+    parser = Parser(lexer, start=start)
+
+    with open(filename, encoding="utf-8") as file:
+        text = file.read()
+
+    ast = parser.parse(text)
+    result = semantic_check(ast)
+    semantic_log(result)
 
 
 parser = argh.ArghParser()
