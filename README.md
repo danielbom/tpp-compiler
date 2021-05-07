@@ -27,6 +27,7 @@ Use the following commands to see the helpers of the tpp program.
 ```bash
 ./tpp.py tokenize --help
 ./tpp.py parse --help
+./tpp.py semantic --help
 ```
 
 # Compilation Process

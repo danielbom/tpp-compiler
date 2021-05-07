@@ -10,6 +10,7 @@ from tpp.Parser import Parser
 from tpp.Semantic import simplify_tree, semantic_check
 from tpp.Tree import generate_anytree_tree
 from anytree.exporter import UniqueDotExporter
+from anytree import RenderTree, AsciiStyle
 
 __dirname = os.path.dirname(os.path.abspath(__file__))
 
@@ -149,7 +150,7 @@ def tokenize(filename, mode="report"):
     "-s", "--start", help="the begin expression to execute the parser [see BNF file]"
 )
 @argh.arg("-o", "--output", help="name of output file running on 'png' or 'dot' mode")
-@argh.arg("-m", "--mode", choices=["strtree", "strclojure", "png", "dot", "noop"])
+@argh.arg("-m", "--mode", choices=["strtree", "strclojure", "stranytree", "png", "dot", "noop"])
 def parse(filename, start="programa", mode="strtree", output="tree", simplify=False):
     if not os.path.isfile(filename):
         print("Error: File not found")
@@ -185,6 +186,9 @@ def parse(filename, start="programa", mode="strtree", output="tree", simplify=Fa
         elif mode == "dot":
             root = generate_anytree_tree(ast)
             UniqueDotExporter(root).to_dotfile(output + ".dot")
+        elif mode == "stranytree":
+            root = generate_anytree_tree(ast)
+            print(RenderTree(root, style=AsciiStyle()).by_attr())
 
 
 def semantic(filename, start="programa"):
