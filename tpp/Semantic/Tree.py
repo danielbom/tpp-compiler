@@ -76,6 +76,7 @@ class Variable:
         self.name = name
         self.indexes = indexes
         self.initialized = initialized
+        self.used = False
 
     def get_type(self):
         def map_index(i):

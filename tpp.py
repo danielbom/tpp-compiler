@@ -7,7 +7,7 @@ from subprocess import CalledProcessError
 
 from tpp.Lexer import Lexer
 from tpp.Parser import Parser
-from tpp.Semantic import simplify_tree, semantic_check
+from tpp.Semantic import simplify_tree, semantic_check, T
 from tpp.Tree import generate_anytree_tree
 from anytree.exporter import UniqueDotExporter
 from anytree import RenderTree, AsciiStyle
@@ -55,6 +55,53 @@ def lexer_report(text):
 
 
 def semantic_log(result):
+    types_map = {
+        T.INTEGER: "inteiro",
+        T.FLOAT: "flutuante",
+        T.TEXT: "texto",
+        T.VOID: "vazio",
+        None: "{?}"
+    }
+    def log_info(info):
+        var_name = info.get("variable")
+        if var_name:
+            print(f'\tNome da variável: "{var_name}"')
+
+        func_name = info.get("function")
+        if func_name:
+            print(f'\tNome da função: "{func_name}"')
+
+        len_params = info.get("length_parameters")
+        if len_params:
+            expect = len_params["expect"]
+            expect = f"{expect} parâmetro" if expect == 1 else f"{expect} parâmetros"
+
+            result = len_params["result"]
+            result = f"apenas {result} parâmetro" if result == 1 else f"{result} parâmetros"
+            print(f"\tEsperava {expect}, mas recebeu {result}.")
+
+        typing = info.get("type_match")
+        if typing:
+            expect = types_map[typing["expect"]]
+            result = types_map[typing["result"]]
+            print(f'\tEsperava tipo "{expect}", mas recebeu "{result}"')
+
+        typ = info.get("type")
+        if typ:
+            print(f"\tTipo atual {typ}.")
+
+        dym = info.get("dimention_check")
+        if dym:
+            result = dym['result']
+            result = f"{result} dimensão" if result == 1 else f"{result} dimensões"
+            print(f'\tEsperava acesso aproapriado a dimensão {dym["expect"]}, mas recebeu um acesso de {re}.')
+
+        idx = info.get("index_access")
+        if idx:
+            expect = idx["expect"]
+            result = idx["result"]
+            print(f'\tEsperava acesso aproapriado ao comprimento {expect}, mas recebeu um acesso no índice {result}.')
+
     errors_count = len(result.errors)
     warnings_count = len(result.warnings)
 
@@ -77,47 +124,7 @@ def semantic_log(result):
             scope_func_name = e.ctx.get_function_name()
             print(f'\tErro encontrado na função "{scope_func_name}"')
 
-        var_name = e.info.get("variable")
-        if var_name:
-            print(f'\tNome da variável: "{var_name}"')
-
-        func_name = e.info.get("function")
-        if func_name:
-            print(f'\tNome da função: "{func_name}"')
-
-        len_params = e.info.get("length_parameters")
-        if len_params:
-            ex = len_params["expect"]
-            ex = f"{ex} parâmetro" if ex == 1 else f"{ex} parâmetros"
-            re = len_params["result"]
-            re = f"apenas {re} parâmetro" if re == 1 else f"{re} parâmetros"
-
-            print(f"\tEsperava {ex}, mas recebeu {re}.")
-
-        typing = e.info.get("type_match")
-        if typing:
-            print(f'\tEsperava tipo {typing["expect"]}, mas recebeu {typing["result"]}')
-
-        typ = e.info.get("type")
-        if typ:
-            print(f"\tTipo atual {typ}.")
-
-        dym = e.info.get("dimention_check")
-        if dym:
-            re = (
-                f"{dym['result']} dimensão"
-                if dym["result"] == 1
-                else f"{dym['result']} dimensões"
-            )
-            print(
-                f'\tEsperava acesso aproapriado a dimensão {dym["expect"]}, mas recebeu um acesso de {re}.'
-            )
-
-        idx = e.info.get("index_access")
-        if idx:
-            print(
-                f'\tEsperava acesso aproapriado ao comprimento {idx["expect"]}, mas recebeu um acesso no índice {idx["result"]}.'
-            )
+        log_info(e.info)
 
         print("\t", e.get_message(), sep="")
 
@@ -125,9 +132,13 @@ def semantic_log(result):
         print()
         print(f">>> Alerta: {w.name}")
 
-        var_name = w.info.get("variable")
-        if var_name:
-            print(f'\tNome da variável: "{var_name}"')
+        if w.ctx.is_global():
+            print('\tAlerta encontrado no escopo "global".')
+        else:
+            scope_func_name = w.ctx.get_function_name()
+            print(f'\tAlerta encontrado na função "{scope_func_name}"')
+
+        log_info(e.info)
 
         print("\t", w.get_message(), sep="")
 

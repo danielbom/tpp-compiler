@@ -204,4 +204,4 @@ def semantic_check(root):
     if root is not None:
         root = simplify_tree(root)
         root = semantic_preprocessor(root)
-        return SemanticChecker().check(root)
+    return SemanticChecker().check(root)

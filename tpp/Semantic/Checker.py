@@ -57,9 +57,15 @@ class SemanticChecker:
             if any(d.name == MAIN_NAME for d in calls):
                 self.warnings.append(SemanticWarning(SW.MAIN_CALL_ITSELF, ctx))
 
-    def check_variable_never_used(self, ctx):
+    def check_variable_usage(self, ctx):
         for v in ctx.variables.values():
             if not v.initialized:
+                self.warnings.append(
+                    SemanticWarning(
+                        SW.VARIABLE_NEVER_INITIALIZED, ctx, {"variable": v.name}
+                    )
+                )
+            elif not v.used:
                 self.warnings.append(
                     SemanticWarning(SW.VARIABLE_NEVER_USED, ctx, {"variable": v.name})
                 )
@@ -141,27 +147,30 @@ class SemanticChecker:
             )
         else:
             ctx.variable_initialized(name)
+            e = decl.expression
 
-            "TODO: check typing"
+            if var.typing != e.typing:
+                self.warnings.append(
+                    SemanticWarning(
+                        SW.IMPLICIT_CAST,
+                        ctx,
+                        {
+                            "variable": name,
+                            "type_match": {"expect": var.typing, "result": e.typing},
+                        },
+                    )
+                )
 
     def check_assignment(self, decl, ctx):
         """
         [X]: Check literal integer less then index length
         [ ]: Check if pointers are initialized
         """
+        decl.variable = self.check_expression(decl.variable, ctx)
+        decl.expression = self.check_and_mark_expression(decl.expression, ctx)
         name = decl.variable.name
-        self.check_expression(decl.expression, ctx)
 
-        if not ctx.variable_is_declared(name):
-            # check variable declaration
-            self.errors.append(
-                SemanticError(
-                    SE.ASSIGN_VARIABLE_UNDECLARED,
-                    ctx,
-                    {"variable": name, "assign": decl},
-                )
-            )
-        else:
+        if ctx.variable_is_declared(name):
             if decl.assignment == A.INITIALIZE:
                 self.check_initialization(decl, ctx)
             elif not ctx.variable_is_initialized(name):
@@ -173,6 +182,15 @@ class SemanticChecker:
                         {"variable": name, "assign": decl},
                     )
                 )
+        else:
+            # check variable declaration
+            self.errors.append(
+                SemanticError(
+                    SE.ASSIGN_VARIABLE_UNDECLARED,
+                    ctx,
+                    {"variable": name, "assign": decl},
+                )
+            )
 
     def apply_operation(self, operation, first, second):
         if operation == O.ADD:
@@ -209,6 +227,9 @@ class SemanticChecker:
         t1 = first.typing
         t2 = second.typing
 
+        if t1 is None or t2 is None:
+            return None
+
         if t1 == T.INTEGER:
             if t2 == T.INTEGER:
                 return T.INTEGER
@@ -223,13 +244,31 @@ class SemanticChecker:
 
         raise Exception("Unimplemented")
 
-    def check_expression(self, decl, ctx):
+    def _check_expression(self, decl, ctx, mark_used):
         if decl.t == S.LITERAL_VARIABLE_LAZY:
+            # Get current variable declaration
             var = ctx.get_variable(decl.name)
-            return decl.set_typing(var.typing)
+
+            if var is None:
+                self.errors.append(
+                    SemanticError(
+                        SE.USING_VARIABLE_UNDECLARED, ctx, {"variable": decl.name}
+                    )
+                )
+
+                return decl.set_typing(None)
+
+            if mark_used:
+                var.used = True
+
+            # Update variable typing
+            lit = decl.set_typing(var.typing)
+
+            # Update variable declaration on context
+            return lit
         elif decl.t == S.BINARY_EXPRESSION_LAZY:
-            first = self.check_expression(decl.first, ctx)
-            second = self.check_expression(decl.second, ctx)
+            first = self._check_expression(decl.first, ctx, mark_used)
+            second = self._check_expression(decl.second, ctx, mark_used)
 
             maybe_decl = self.simplify_literal(decl.operation, first, second)
             if maybe_decl:
@@ -239,14 +278,14 @@ class SemanticChecker:
 
             return BinaryExpression(decl.operation, first, second, typing)
         elif decl.t == S.UNARY_EXPRESSION_LAZY:
-            variable = self.check_expression(decl.variable, ctx)
+            variable = self._check_expression(decl.variable, ctx, mark_used)
 
             # TODO: Check if variable is numeric
 
             return UnaryExpression(decl.operation, variable, variable.typing)
         elif decl.t == S.FUNCTION_CALL_LAZY:
             func = self.get_function(decl.name)
-            return decl.set_typing(func.return_type)
+            return decl.set_typing(None if func is None else func.return_type)
 
         elif decl.t == S.LITERAL_VARIABLE:
             name = decl.name
@@ -290,13 +329,19 @@ class SemanticChecker:
 
         return decl
 
+    def check_expression(self, decl, ctx):
+        return self._check_expression(decl, ctx, False)
+
+    def check_and_mark_expression(self, decl, ctx):
+        return self._check_expression(decl, ctx, True)
+
     def check_body(self, scope, body, outer_ctx):
         ctx = SemanticContext(scope, outer_ctx)
 
         for decl in body:
             self.dispatch_declaration(decl, ctx)
 
-        self.check_variable_never_used(ctx)
+        self.check_variable_usage(ctx)
 
     def check_and_declare_variable(self, var, ctx):
         if ctx.variable_is_declared_local(var.name):
@@ -314,9 +359,7 @@ class SemanticChecker:
                 SemanticError(
                     SE.SYMBOL_ALREADY_EXISTS,
                     ctx,
-                    {
-                        "variable": var.name,
-                    },
+                    {"variable": var.name},
                 )
             )
         else:
@@ -351,7 +394,7 @@ class SemanticChecker:
 
         body = [self.dispatch_declaration(decl, ctx) for decl in func.body]
 
-        self.check_variable_never_used(ctx)
+        self.check_variable_usage(ctx)
 
         calls = self.iterate_over_body(func.body)
         calls = [d for d in calls if d.t == S.RETURN_DECLARATION]
@@ -464,7 +507,7 @@ class SemanticChecker:
                 )
             )
         else:
-            expression = self.check_expression(decl.expression, ctx)
+            expression = self.check_and_mark_expression(decl.expression, ctx)
             return ReturnDeclaration(expression)
 
         return decl
@@ -488,26 +531,31 @@ class SemanticChecker:
                 self.check_and_declare_variable(v, ctx)
             return decl
         elif decl.t == S.REPEAT_DECLARATION:
-            expression = self.check_expression(decl.expression, ctx)
-            body = self.check_body("repita", decl.body, ctx)
+            expression = self.check_and_mark_expression(decl.expression, ctx)
+            body = self.check_body("repeat", decl.body, ctx)
             return RepeatDeclaration(expression, body)
         elif decl.t == S.IF_ELSE_DECLARATION:
-            if_expression = self.check_expression(decl.if_expression, ctx)
-            if_body = self.check_body("se", decl.if_body, ctx)
-            else_body = self.check_body("senão", decl.else_body, ctx)
+            if_expression = self.check_and_mark_expression(decl.if_expression, ctx)
+            if_body = self.check_body("if", decl.if_body, ctx)
+            else_body = self.check_body("else", decl.else_body, ctx)
             return IfElseDeclaration(if_expression, if_body, else_body)
         elif decl.t == S.ASSIGNMENT:
             return self.check_assignment(decl, ctx)
         elif decl.t == S.FUNCTION_CALL:
             return self.check_function_call(decl, ctx)
         elif decl.t == S.READ:
-            return self.check_expression(decl.expression, ctx)
+            e = decl.expression
+            e = self.check_and_mark_expression(e, ctx)
+            ctx.variable_initialized(e.name)
+            decl.expression = e
+            return decl
         elif decl.t == S.WRITE:
-            return self.check_expression(decl.expression, ctx)
+            decl.expression = self.check_and_mark_expression(decl.expression, ctx)
+            return decl
         elif decl.t == S.RETURN_DECLARATION:
             return self.check_return(decl, ctx)
         elif decl.t == S.FUNCTION_CALL_LAZY:
-            decl = self.check_expression(decl, ctx)
+            decl = self.check_and_mark_expression(decl, ctx)
             return self.dispatch_declaration(decl, ctx)
         else:
             print(decl.__class__.__name__)
@@ -531,17 +579,23 @@ class SemanticChecker:
                     # check multiple function declaration
                     self.errors.append(
                         SemanticError(
-                            "MULTIPLE_FUNCTION_DECLARATION",
+                            SE.MULTIPLE_FUNCTION_DECLARATION,
                             ctx,
                             {"function": name},
                         )
                     )
                 elif self.get_global_variable(name):
                     # function declaration shadow global variable
-                    raise Exception("Unimplemented")
-                else:
-                    # collect function declaration
-                    ctx.declare_function(decl)
+                    self.errors.append(
+                        SemanticError(
+                            SE.SYMBOL_ALREADY_EXISTS,
+                            ctx,
+                            {"function": name},
+                        )
+                    )
+
+                # collect function declaration
+                ctx.declare_function(decl)
             else:  # decl.t == S.VARS_DECLARATION:
                 for v in decl.variables:
                     self.check_and_declare_variable(v, ctx)
@@ -549,10 +603,10 @@ class SemanticChecker:
         # All functions and variables was collected before
         # checking the function declaration
         declarations = [
-            self.dispatch_declaration(decl, ctx) for decl in ast.declarations
+            self.dispatch_declaration(decl, ctx) for decl in ctx.functions.values()
         ]
 
-        self.check_variable_never_used(ctx)
+        self.check_variable_usage(ctx)
         self.check_function_main_exists()
 
         self.ast = Program(declarations)
