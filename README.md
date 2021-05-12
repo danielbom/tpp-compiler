@@ -54,6 +54,7 @@ Use the following commands to see the helpers of the tpp program.
     * Check if has only 1 declaration of variables by context.
     * Check if variables are declared.
     * Check if variables are initialized.
+    * Check if variables are used.
     * arrays:
       * Check if index dimension are used correctly
 

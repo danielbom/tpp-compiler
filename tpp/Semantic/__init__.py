@@ -27,6 +27,9 @@ def semantic_preprocessor(root):
         "MAIORIGUAL": O.LESS_EQUAL,
         "IGUAL": O.EQUAL,
         "DIFERENTE": O.DIFFERENT,
+        "NEGACAO": O.NEGATE,
+        "E_LOGICO": O.AND,
+        "OU_LOGICO": O.OR,
     }
 
     def rec(node: Tree):
@@ -189,11 +192,13 @@ def semantic_preprocessor(root):
             return LiteralVariableLazy(node.value, [])
         if node.identifier == "CARACTERES":
             return LiteralCharacters(node.value)
+        if node.identifier == "vazio":
+            return Empty()
 
         print()
         print(node.str_tree())
         print()
-        print(node, node.children, node.value)
+        print(node, node.children, node._value)
         print()
         raise Exception("Unimplemented")
 

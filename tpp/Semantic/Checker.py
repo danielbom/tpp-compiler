@@ -52,9 +52,9 @@ class SemanticChecker:
             main = self.get_function(MAIN_NAME)
 
             calls = self.iterate_over_body(main.body)
-            calls = (d for d in calls if d.t == S.FUNCTION_CALL)
+            calls = (d.name for d in calls if d.t == S.FUNCTION_CALL)
 
-            if any(d.name == MAIN_NAME for d in calls):
+            if MAIN_NAME in calls:
                 self.warnings.append(SemanticWarning(SW.MAIN_CALL_ITSELF, ctx))
 
     def check_variable_usage(self, ctx):
@@ -192,6 +192,8 @@ class SemanticChecker:
                 )
             )
 
+        return decl
+
     def apply_operation(self, operation, first, second):
         if operation == O.ADD:
             return first.value + second.value
@@ -202,6 +204,9 @@ class SemanticChecker:
         if operation == O.DIVIDE:
             if first.t == S.LITERAL_INTEGER:
                 if second.t == S.LITERAL_INTEGER:
+                    if second.value == 0:
+                        self.errors.append(SemanticError(SE.DIVISION_BY_ZERO))
+                        return 1
                     return first.value // second.value
             return first.value / second.value
 
@@ -221,7 +226,7 @@ class SemanticChecker:
                 if second.t == S.LITERAL_INTEGER:
                     lit = LiteralFloat
 
-        return lit(self.apply_operation(op, first.value, second.value)) if lit else None
+        return lit(self.apply_operation(op, first, second)) if lit else None
 
     def extract_typing(self, first, second):
         t1 = first.typing
@@ -338,10 +343,13 @@ class SemanticChecker:
     def check_body(self, scope, body, outer_ctx):
         ctx = SemanticContext(scope, outer_ctx)
 
+        new_body = []
         for decl in body:
-            self.dispatch_declaration(decl, ctx)
+            decl = self.dispatch_declaration(decl, ctx)
+            new_body.append(decl)
 
         self.check_variable_usage(ctx)
+        return new_body
 
     def check_and_declare_variable(self, var, ctx):
         if ctx.variable_is_declared_local(var.name):
@@ -479,7 +487,7 @@ class SemanticChecker:
                                 )
                             )
 
-            return FunctionCall(name, parameters, decl.typing)
+            return FunctionCall(decl.typing, name, parameters)
         else:
             self.errors.append(
                 SemanticError(
@@ -507,14 +515,13 @@ class SemanticChecker:
                 )
             )
         else:
-            expression = self.check_and_mark_expression(decl.expression, ctx)
-            return ReturnDeclaration(expression)
+            decl.expression = self.check_and_mark_expression(decl.expression, ctx)
+            return decl
 
         return decl
 
     def dispatch_declaration(self, decl, ctx):
         """
-        [X]: FUNCTION_DECLARATION (check)
         [X]: IF_ELSE_DECLARATION (check)
         [X]: REPEAT_DECLARATION (check)
         [X]: ASSIGNMENT (check)
@@ -524,16 +531,14 @@ class SemanticChecker:
         [X]: FUNCTION_CALL (check)
         [X]: VARS_DECLARATION (check, collect)
         """
-        if decl.t == S.FUNCTION_DECLARATION:
-            return self.check_function(decl, ctx)
-        elif decl.t == S.VARS_DECLARATION:
+        if decl.t == S.VARS_DECLARATION:
             for v in decl.variables:
                 self.check_and_declare_variable(v, ctx)
             return decl
         elif decl.t == S.REPEAT_DECLARATION:
             expression = self.check_and_mark_expression(decl.expression, ctx)
             body = self.check_body("repeat", decl.body, ctx)
-            return RepeatDeclaration(expression, body)
+            return RepeatDeclaration(body, expression)
         elif decl.t == S.IF_ELSE_DECLARATION:
             if_expression = self.check_and_mark_expression(decl.if_expression, ctx)
             if_body = self.check_body("if", decl.if_body, ctx)
@@ -557,9 +562,11 @@ class SemanticChecker:
         elif decl.t == S.FUNCTION_CALL_LAZY:
             decl = self.check_and_mark_expression(decl, ctx)
             return self.dispatch_declaration(decl, ctx)
-        else:
-            print(decl.__class__.__name__)
-            raise Exception("Unimplemented")
+        elif decl.t == S.EMPTY:
+            return decl
+
+        print(decl.__class__.__name__, ':', decl.t)
+        raise Exception("Unimplemented")
 
     def check_program(self, ast):
         """
@@ -602,9 +609,13 @@ class SemanticChecker:
 
         # All functions and variables was collected before
         # checking the function declaration
-        declarations = [
-            self.dispatch_declaration(decl, ctx) for decl in ctx.functions.values()
-        ]
+        declarations = []
+        functions = {}
+        for name, decl in ctx.functions.items():
+            decl = self.check_function(decl, ctx)
+            declarations.append(decl)
+            functions[name] = decl
+        ctx.functions = functions
 
         self.check_variable_usage(ctx)
         self.check_function_main_exists()

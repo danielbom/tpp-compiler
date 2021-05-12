@@ -3,6 +3,7 @@ class SemanticErrors:
     MAIN_NOT_FOUND = "MAIN_NOT_FOUND"
     CALL_UNDECLARED_FUNCTION = "CALL_UNDECLARED_FUNCTION"
     SYMBOL_ALREADY_EXISTS = "SYMBOL_ALREADY_EXISTS"
+    DIVISION_BY_ZERO = "DIVISION_BY_ZERO"
 
     ASSIGN_VARIABLE_UNDECLARED = "ASSIGN_VARIABLE_UNDECLARED"
     USING_VARIABLE_UNDECLARED = "USING_VARIABLE_UNDECLARED"
@@ -29,6 +30,7 @@ class SemanticError:
         "MAIN_NOT_FOUND": "Função principal não encontrada.",
         "TYPE_ERROR_ON_FUNCTION_CALL": "Chamada de função com tipos incompatíveis.",
         "SYMBOL_ALREADY_EXISTS": "Variáveis e funções com nomes iguais.",
+        "DIVISION_BY_ZERO": "Não é permitido divisão por zero.",
         "ASSIGN_VARIABLE_UNDECLARED": "Tentativa de atribuição em uma variável não declarada.",
         "USING_VARIABLE_UNDECLARED": "Tentativa de utilização de uma variável não declarada.",
         "USING_VARIABLE_UNINITIALIZED": "Tentativa de utilização de uma variável não inicializada.",

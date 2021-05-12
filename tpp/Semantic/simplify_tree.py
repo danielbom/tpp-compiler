@@ -35,11 +35,17 @@ def simplify_tree(root):
         "adiciona_ou_subtrai",
         "conjuncao_ou_disjuncao",
         "multiplica_ou_divide",
-        "expressoes_de_igualdade"
+        "expressoes_de_igualdade",
     ]
-    GO_AHEAD = (["declaracao", "numero", "literal", "negacao", "tipo"] 
-        + BINARY_EXPRESSION + BINARY_EXPRESSION_2)
+    GO_AHEAD = [
+        "declaracao",
+        "numero",
+        "literal",
+        "negacao",
+        "tipo",
+    ] + BINARY_EXPRESSION + BINARY_EXPRESSION_2
     VOID_TYPE = Tree("VAZIO", value="vazio")
+    COMPARE_EXPRESSION = ["maior", "menor", "conjuncao", "disjuncao"]
 
     def rec(node: Tree):
         cs = node.children
@@ -64,11 +70,14 @@ def simplify_tree(root):
             first = rec(first)
             second = rec(second)
 
-            # Rotate
-            first2 = second.children[0]
-            second.children[0] = Tree("expression", [first] + first2.children)
-
-            return second
+            if "terminal" in second.identifier or second.identifier in COMPARE_EXPRESSION:
+                op, second = second.children
+                return Tree("expression", [first, op, second])
+            else:
+                # Rotate
+                first2 = second.children[0]
+                second.children[0] = Tree("expression", [first] + first2.children)
+                return second
 
         if node.identifier == "literal" and n == 3:  # ( expression )
             return rec(cs[1])

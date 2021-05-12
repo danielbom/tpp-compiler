@@ -1,6 +1,7 @@
 class SemanticTypes:
     PROGRAM = "program"
     VARIABLE = "variable"
+    EMPTY = "empty"
 
     VARS_DECLARATION = "vars_declaration"
     FUNCTION_DECLARATION = "function_declaration"
@@ -50,6 +51,10 @@ class OperationTypes:
     LESS_EQUAL = "less_equal"
     EQUAL = "equal"
     DIFFERENT = "different"
+    NEGATE = "negate"
+
+    AND = "and"
+    OR = "OR"
 
 
 class TypeTypes:
@@ -277,3 +282,6 @@ class LiteralCharacters:
         self.value = value
         self.typing = TypeTypes.TEXT
 
+
+class Empty:
+    t = SemanticTypes.EMPTY
