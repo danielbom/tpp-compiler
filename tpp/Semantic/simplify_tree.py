@@ -19,13 +19,11 @@ def simplify_tree(root):
         "COLCHETE_DIR",
         "FIM",
     ]
-    GO_AHEAD = ["declaracao", "numero", "literal"]
+    UNARY_EXPRESSION = ["negacao", "expressao_unaria"]
     BINARY_EXPRESSION = [
         "expressao",
         "expressoes_booleanas",
-        "negacao",
         "expressoes_booleanas_primario",
-        "expressoes_de_igualdade",
         "expressao_de_igualdade_primario",
         "expressoes_de_comparacao",
         "expressao_de_comparacao_primario",
@@ -33,38 +31,49 @@ def simplify_tree(root):
         "soma",
         "produto",
     ]
-    EXTRACT_FIRST_CHILDREN = ["conjuncao_ou_disjuncao", "adiciona_ou_subtrai", "tipo"]
+    BINARY_EXPRESSION_2 = [
+        "adiciona_ou_subtrai",
+        "conjuncao_ou_disjuncao",
+        "multiplica_ou_divide",
+        "expressoes_de_igualdade"
+    ]
+    GO_AHEAD = (["declaracao", "numero", "literal", "negacao", "tipo"] 
+        + BINARY_EXPRESSION + BINARY_EXPRESSION_2)
     VOID_TYPE = Tree("VAZIO", value="vazio")
 
     def rec(node: Tree):
         cs = node.children
         n = len(cs)
 
+        if node.identifier in GO_AHEAD and n == 1:
+            return rec(cs[0])
+
+        if node.identifier in UNARY_EXPRESSION and n == 2:
+            return Tree("expressao_unaria", [cs[0], rec(cs[1])])
+
+        if node.identifier in BINARY_EXPRESSION_2:
+            first, second = cs
+            op, second = second.children
+            second = rec(second)
+            first = rec(first)
+            return Tree("expression", [first, op, second])
+
         if node.identifier in BINARY_EXPRESSION:
-            if n == 1:
-                return rec(cs[0])
+            first, second = cs
 
-            if n == 2:
-                first, second = cs
+            first = rec(first)
+            second = rec(second)
 
-                second = rec(second)
-                op, second = second.children
-                first = rec(first)
-                second = rec(second)
+            # Rotate
+            first2 = second.children[0]
+            second.children[0] = Tree("expression", [first] + first2.children)
 
-                return Tree("expression", [first, op, second])
+            return second
 
         if node.identifier == "literal" and n == 3:  # ( expression )
             return rec(cs[1])
 
-        if node.identifier in GO_AHEAD:
-            return rec(cs[0])
-
-        if node.identifier in EXTRACT_FIRST_CHILDREN:
-            return rec(node.children[0])
-
-        cs = (c for c in cs if c.identifier not in IGNORE_NODES)
-        cs = list(map(rec, cs))
+        cs = [rec(c) for c in cs if c.identifier not in IGNORE_NODES]
 
         if node.identifier == "funcao_declaracao" and len(cs) == 2:
             cs = [VOID_TYPE] + cs
