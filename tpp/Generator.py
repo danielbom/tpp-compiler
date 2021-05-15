@@ -75,7 +75,7 @@ class FunctionBuilder:
         self.decl = decl
         self.function_name = function_name
         self.program = program
-        self.return_name = "ret_val"
+        self.return_name = function_name + ".ret"
 
         self.parameters = None
         self.return_g = None
@@ -142,8 +142,8 @@ class FunctionBuilder:
         print()
         raise Exception("Unimplemented")
     
-    def solve_var_declaration(self, decl):
-        for v in decl.variables:
+    def declare_variables(self, variables):
+        for v in variables:
             g = G.map_typing_with_indexes(v.typing, v.indexes)
             variable = self.entry_builder.alloca(g.typing, name=v.name)
             self.entry_builder.store(g.initializer, variable)
@@ -156,10 +156,23 @@ class FunctionBuilder:
         if decl.assignment == A.INITIALIZE:
             self.entry_builder.store(expression, variable)
         else:
-            print(decl.__class__.__name__, ':', decl.t)
-            print(decl.assignment)
-            print()
-            raise Exception("Unimplemented")
+            if decl.assignment == A.ADD:
+                operator = self.entry_builder.add
+            elif decl.assignment == A.SUBTRACT:
+                operator = self.entry_builder.sub
+            elif decl.assignment == A.MULTIPLY:
+                operator = self.entry_builder.mul
+            elif decl.assignment == A.DIVIDE:
+                operator = self.entry_builder.sdiv
+            else:
+                print(decl.__class__.__name__, ':', decl.t)
+                print(decl.assignment)
+                print()
+                raise Exception("Unimplemented")
+
+            temp1 = self.entry_builder.load(variable, name=self.program.get_temp_name())
+            temp2 = operator(temp1, expression, name=self.program.get_temp_name())
+            self.entry_builder.store(temp2, variable)
 
     def solve_body(self, body):
         for decl in body:
@@ -215,8 +228,10 @@ class FunctionBuilder:
         early_block = self.entry_builder.append_basic_block(repeat_names["early"])
         end_block = self.entry_builder.append_basic_block(repeat_names["end"])
 
-        # Repeat
+        # Start
         self.entry_builder.branch(repeat_block)
+
+        # Body
         self.entry_builder.position_at_end(repeat_block)
         self.solve_body(decl.body)
         if self.consume_early_exit():
@@ -243,7 +258,7 @@ class FunctionBuilder:
         elif decl.t == S.RETURN_DECLARATION:
             self.solve_return(decl)
         elif decl.t == S.VARS_DECLARATION:
-            self.solve_var_declaration(decl)
+            self.declare_variables(decl.variables)
         elif decl.t == S.REPEAT_DECLARATION:
             self.solve_repeat(decl)
         elif decl.t == S.IF_ELSE_DECLARATION:
@@ -263,6 +278,10 @@ class FunctionBuilder:
         parameters = self.decl.parameters
         parameters = (G.map_typing_with_indexes(p.typing, p.indexes) for p in parameters)
         self.parameters = [p.typing for p in parameters]
+
+    def _declare_parameters_as_variables(self):
+        for p, a in zip(self.decl.parameters, self.function.args):
+            self.variables[p.name] = a
 
     def _build_function_type(self):
         self.return_g = G.map_typing(self.decl.return_type)
@@ -298,8 +317,8 @@ class FunctionBuilder:
             self.exit_builder.ret_void()
         else:
             # Add return declaration
-            return_loaded = self.exit_builder.load(self.return_value, self.return_name)
-            self.exit_builder.ret(return_loaded)
+            temp = self.exit_builder.load(self.return_value, name=self.program.get_temp_name())
+            self.exit_builder.ret(temp)
 
     # Start
     def build(self):
@@ -309,6 +328,7 @@ class FunctionBuilder:
         self._declare_function()
         self._name_parameters()
         self._declare_entry_and_exit_blocks_and_builders()
+        self._declare_parameters_as_variables()
         self._declare_return_value()
         self._build_body()
         self._build_exit_of_function()
@@ -358,6 +378,21 @@ class ProgramBuilder:
         build_function = FunctionBuilder(decl, function_name, self)
         build_function.build()
     
+    # Read and Write
+    def declare_write_functions(self):
+        function_typing_int = ir.FunctionType(G.VOID, [G.INT])
+        self.write_int = ir.Function(self.module, function_typing_int, "__write_int")
+
+        function_typing_float = ir.FunctionType(G.VOID, [G.FLOAT])
+        self.write_float = ir.Function(self.module, function_typing_float, "__write_float")
+
+    def declare_read_functions(self):
+        function_typing_int = ir.FunctionType(G.INT, [])
+        self.write_int = ir.Function(self.module, function_typing_int, "__read_int")
+
+        function_typing_float = ir.FunctionType(G.FLOAT, [])
+        self.write_float = ir.Function(self.module, function_typing_float, "__read_float")
+
     # Process
     def _startup_llvm(self):
         llvm.initialize()
@@ -374,6 +409,9 @@ class ProgramBuilder:
         target_machine = target.create_target_machine()
         self.module.data_layout = target_machine.target_data
 
+        self.declare_write_functions()
+        self.declare_read_functions()
+
     def _declare_global_variables(self):
         for decl in self.program_ctx.variables.values():
             g = G.map_typing(decl.typing)
@@ -382,7 +420,7 @@ class ProgramBuilder:
             v.align = 4
             v.initializer = g.initializer
     
-    def _declare_functions(self):
+    def _declare_and_build_functions(self):
         MAIN_NAME = "principal"
 
         for name, decl in self.program_ctx.functions.items():
@@ -399,7 +437,7 @@ class ProgramBuilder:
         self._startup_llvm()
         self._create_module()
         self._declare_global_variables()
-        self._declare_functions()
+        self._declare_and_build_functions()
         self._finish_llvm_process()
         return self.module
 
