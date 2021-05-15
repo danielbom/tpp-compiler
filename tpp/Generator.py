@@ -70,22 +70,32 @@ class G:
         return g
 
 
+class GeneratorContext:
+    def __init__(self, name, parent=None):
+        self.name = name
+        self.parent = parent
+
+        self.variables = {}
+
+    def get_variable(self, name):
+        var = self.variables.get(name)
+        return self.parent.get_variable(name) if var is None else var
+
+
 class FunctionBuilder:
-    def __init__(self, decl, function_name, program):
+    def __init__(self, decl, function_name, function, program):
         self.decl = decl
         self.function_name = function_name
+        self.function = function
         self.program = program
+
+        self.return_g = G.map_typing(decl.return_type)
         self.return_name = function_name + ".ret"
 
-        self.parameters = None
-        self.return_g = None
-        self.function_typing = None
-        self.function = None
         self.entry_block = None
         self.exit_block = None
         self.entry_builder = None
         self.exit_builder = None
-        self.variables = {}
         self.early_exit = False
 
     # Utils
@@ -95,9 +105,6 @@ class FunctionBuilder:
             return True 
         return False 
 
-    def get_variable(self, name):
-        return self.variables[name]
-    
     def get_binary_operator(self, expr):
         if expr.operation == O.ADD:
             return lambda t1, t2, n: self.entry_builder.add(t1, t2, name=n)
@@ -120,15 +127,15 @@ class FunctionBuilder:
             return lambda t1, t2, n: self.entry_builder.fcmp_signed(op, t1, t2, name=n)
             
     # Solver
-    def solve_expression(self, expr):
+    def solve_expression(self, expr, ctx):
         if expr.t == S.LITERAL_INTEGER:
             return G.const_int(expr.value)
         elif expr.t == S.LITERAL_VARIABLE:
-            variable = self.get_variable(expr.name)
+            variable = ctx.get_variable(expr.name)
             return self.entry_builder.load(variable, name=self.program.get_temp_name())
         elif expr.t == S.BINARY_EXPRESSION:
-            temp1 = self.solve_expression(expr.first)
-            temp2 = self.solve_expression(expr.second)
+            temp1 = self.solve_expression(expr.first, ctx)
+            temp2 = self.solve_expression(expr.second, ctx)
             operator = self.get_binary_operator(expr)
 
             if operator is None:
@@ -142,16 +149,16 @@ class FunctionBuilder:
         print()
         raise Exception("Unimplemented")
     
-    def declare_variables(self, variables):
-        for v in variables:
+    def declare_variables(self, decl, ctx):
+        for v in decl.variables:
             g = G.map_typing_with_indexes(v.typing, v.indexes)
             variable = self.entry_builder.alloca(g.typing, name=v.name)
             self.entry_builder.store(g.initializer, variable)
-            self.variables[v.name] = variable
+            ctx.variables[v.name] = variable
 
-    def solve_assignment(self, decl):
-        variable = self.get_variable(decl.variable.name)
-        expression = self.solve_expression(decl.expression)
+    def solve_assignment(self, decl, ctx):
+        variable = ctx.get_variable(decl.variable.name)
+        expression = self.solve_expression(decl.expression, ctx)
 
         if decl.assignment == A.INITIALIZE:
             self.entry_builder.store(expression, variable)
@@ -174,18 +181,18 @@ class FunctionBuilder:
             temp2 = operator(temp1, expression, name=self.program.get_temp_name())
             self.entry_builder.store(temp2, variable)
 
-    def solve_body(self, body):
+    def solve_body(self, body, ctx):
         for decl in body:
-            self.dispatch_declaration(decl)
+            self.dispatch_declaration(decl, ctx)
 
-    def solve_return(self, decl):
+    def solve_return(self, decl, ctx):
         g = self.return_g
         if g.t != T.VOID:
-            expression = self.solve_expression(decl.expression)
+            expression = self.solve_expression(decl.expression, ctx)
             self.entry_builder.store(expression, self.return_value)
         self.early_exit = True
 
-    def solve_if_else(self, decl):
+    def solve_if_else(self, decl, ctx):
         if_names = self.program.get_if_names()
             
         if_block = self.entry_builder.append_basic_block(if_names["if"])
@@ -194,12 +201,12 @@ class FunctionBuilder:
         end_block = self.entry_builder.append_basic_block(if_names["end"])
 
         # Expression
-        expression = self.solve_expression(decl.if_expression)
+        expression = self.solve_expression(decl.if_expression, ctx)
         self.entry_builder.cbranch(expression, if_block, else_block)
 
         # If
         self.entry_builder.position_at_end(if_block)
-        self.solve_body(decl.if_body)
+        self.solve_body(decl.if_body, GeneratorContext(if_names["if"], ctx))
         if self.consume_early_exit():
             self.entry_builder.branch(early_block)
         else:
@@ -207,7 +214,7 @@ class FunctionBuilder:
 
         # Else
         self.entry_builder.position_at_end(else_block)
-        self.solve_body(decl.else_body)
+        self.solve_body(decl.else_body, GeneratorContext(if_names["else"], ctx))
         if self.consume_early_exit():
             self.entry_builder.branch(early_block)
         else:
@@ -220,7 +227,7 @@ class FunctionBuilder:
         # Finish declaration
         self.entry_builder.position_at_end(end_block)
 
-    def solve_repeat(self, decl):
+    def solve_repeat(self, decl, ctx):
         repeat_names = self.program.get_repeat_names()
 
         repeat_block = self.entry_builder.append_basic_block(repeat_names["repeat"])
@@ -233,7 +240,7 @@ class FunctionBuilder:
 
         # Body
         self.entry_builder.position_at_end(repeat_block)
-        self.solve_body(decl.body)
+        self.solve_body(decl.body, GeneratorContext(repeat_names["repeat"], ctx))
         if self.consume_early_exit():
             self.entry_builder.branch(early_block)
         else:
@@ -241,7 +248,7 @@ class FunctionBuilder:
 
         # Expression
         self.entry_builder.position_at_end(cond_block)
-        expression = self.solve_expression(decl.expression)
+        expression = self.solve_expression(decl.expression, ctx)
         self.entry_builder.cbranch(expression, end_block, repeat_block)
 
         # Early
@@ -252,19 +259,19 @@ class FunctionBuilder:
         self.entry_builder.position_at_end(end_block)
 
     # Dispatch
-    def dispatch_declaration(self, decl):
+    def dispatch_declaration(self, decl, ctx):
         if decl.t == S.EMPTY:
             return
         elif decl.t == S.RETURN_DECLARATION:
-            self.solve_return(decl)
+            self.solve_return(decl, ctx)
         elif decl.t == S.VARS_DECLARATION:
-            self.declare_variables(decl.variables)
+            self.declare_variables(decl, ctx)
         elif decl.t == S.REPEAT_DECLARATION:
-            self.solve_repeat(decl)
+            self.solve_repeat(decl, ctx)
         elif decl.t == S.IF_ELSE_DECLARATION:
-            self.solve_if_else(decl)
+            self.solve_if_else(decl, ctx)
         elif decl.t == S.ASSIGNMENT:
-            self.solve_assignment(decl)
+            self.solve_assignment(decl, ctx)
         # elif decl.t == S.FUNCTION_CALL:
         # elif decl.t == S.READ:
         # elif decl.t == S.WRITE:
@@ -274,27 +281,6 @@ class FunctionBuilder:
             raise Exception("Unimplemented")
 
     # Process
-    def _build_parameters(self):
-        parameters = self.decl.parameters
-        parameters = (G.map_typing_with_indexes(p.typing, p.indexes) for p in parameters)
-        self.parameters = [p.typing for p in parameters]
-
-    def _declare_parameters_as_variables(self):
-        for p, a in zip(self.decl.parameters, self.function.args):
-            self.variables[p.name] = a
-
-    def _build_function_type(self):
-        self.return_g = G.map_typing(self.decl.return_type)
-        self.function_typing = ir.FunctionType(self.return_g.typing, self.parameters)
-
-    def _declare_function(self):
-        module = self.program.module
-        self.function = ir.Function(module, self.function_typing, self.function_name)
-
-    def _name_parameters(self):
-        for arg, param in zip(self.function.args, self.decl.parameters):
-            arg.name = param.name
-
     def _declare_entry_and_exit_blocks_and_builders(self):
         self.entry_block = self.function.append_basic_block(self.function_name + ".entry")
         self.exit_block = self.function.append_basic_block(self.function_name + ".exit")
@@ -307,9 +293,13 @@ class FunctionBuilder:
             self.return_value = self.entry_builder.alloca(g.typing, name=self.return_name)
             self.entry_builder.store(g.initializer, self.return_value)
 
-    def _build_body(self):
+    def _declare_parameters_as_variables(self, ctx):
+        for p, a in zip(self.decl.parameters, self.function.args):
+            ctx.variables[p.name] = a
+
+    def _build_body(self, ctx):
         for decl in self.decl.body:
-            self.dispatch_declaration(decl)
+            self.dispatch_declaration(decl, ctx)
     
     def _build_exit_of_function(self):
         self.entry_builder.branch(self.exit_block)
@@ -323,14 +313,13 @@ class FunctionBuilder:
     # Start
     def build(self):
         # Methods calls are dependents and must executed in this order
-        self._build_parameters()
-        self._build_function_type()
-        self._declare_function()
-        self._name_parameters()
         self._declare_entry_and_exit_blocks_and_builders()
-        self._declare_parameters_as_variables()
         self._declare_return_value()
-        self._build_body()
+
+        ctx = GeneratorContext(self.function_name)
+        self._declare_parameters_as_variables(ctx)
+        self._build_body(ctx)
+        
         self._build_exit_of_function()
 
 
@@ -340,6 +329,7 @@ class ProgramBuilder:
         self.program_ctx = program_ctx
         self.filename = filename
 
+        self.functions = {}
         self.module = None  # Create on call build()
 
         self.temp_counter = 1
@@ -373,11 +363,28 @@ class ProgramBuilder:
             "early": f"early.{counter}"
         }
     
-    # Outer resolution
-    def _build_function(self, function_name: str, decl):
-        build_function = FunctionBuilder(decl, function_name, self)
-        build_function.build()
-    
+    def declare_function(self, name, decl):
+        # Parameters typing
+        parameters = decl.parameters
+        parameters = (G.map_typing_with_indexes(p.typing, p.indexes) for p in parameters)
+        parameters = [p.typing for p in parameters]
+
+        # Function typing
+        return_g = G.map_typing(decl.return_type)
+        function_typing = ir.FunctionType(return_g.typing, parameters)
+
+        # Function declaration
+        function = ir.Function(self.module, function_typing, name)
+
+        # Name parameters
+        for arg, param in zip(function.args, decl.parameters):
+            arg.name = param.name
+
+        # Store function declaration
+        self.functions[name] = function
+
+        return function
+
     # Read and Write
     def declare_write_functions(self):
         function_typing_int = ir.FunctionType(G.VOID, [G.INT])
@@ -420,13 +427,23 @@ class ProgramBuilder:
             v.align = 4
             v.initializer = g.initializer
     
-    def _declare_and_build_functions(self):
+    def _declare_functions(self):
         MAIN_NAME = "principal"
 
         for name, decl in self.program_ctx.functions.items():
             if name == MAIN_NAME:
                 name = "main"
-            self._build_function(name, decl)
+            self.declare_function(name, decl)
+
+    def _build_functions(self):
+        MAIN_NAME = "principal"
+
+        for name, decl in self.program_ctx.functions.items():
+            if name == MAIN_NAME:
+                name = "main"
+            function = self.functions[name]
+            build_function = FunctionBuilder(decl, name, function, self)
+            build_function.build()
 
     def _finish_llvm_process(self):
         llvm.shutdown()
@@ -437,7 +454,8 @@ class ProgramBuilder:
         self._startup_llvm()
         self._create_module()
         self._declare_global_variables()
-        self._declare_and_build_functions()
+        self._declare_functions()
+        self._build_functions()
         self._finish_llvm_process()
         return self.module
 
