@@ -30,7 +30,11 @@ def shell(*args, **kwargs):
         return False
 
 
+# Shell calls
 def execute_clojure_formatter(text):
+    """
+    clojure -M update-output.clj [filename]
+    """
     temp_file_name = os.path.join(__dirname, "tmp", "tpp-temp-str.temp.txt")
     clj_script = os.path.join(__dirname, "scripts", "update-output.clj")
     clj_cmd = ["clojure", "-M", clj_script, temp_file_name]
@@ -43,14 +47,41 @@ def execute_clojure_formatter(text):
     shell(clj_cmd)
 
 
-def generate_binary(input_ll, output_exe):
-    shell(["llc", input_ll, "-filetype=obj"])
-    shell(["gcc", "out.o", "-o", output_exe])
+def generate_binary(input_ll, output_bc, output_exe):
+    """
+    Generate intermediate code of dependencies: .ll
+        clang -emit-llvm -S dependencies/io.c \\
+        mv io.ll dependencies/ \\
+        llc -filetype=obj dependencies/io.ll
+    
+    Link our program with all dependencies: .bc
+        llvm-link [input.ll] dependencies/io.ll -o [output.bc]
+    
+    Compile our program:
+        clang [output.bc] -o [output.exe]
+    """
+    shell(["clang", "-emit-llvm", "-S", "dependencies/io.c"])
+    shell(["mv", "io.ll", "dependencies/"])
+    shell(["llc", "-filetype=obj", "dependencies/io.ll"])
+
+    shell(["llvm-link", input_ll, "dependencies/io.ll", "-o", output_bc])
+
+    shell(["clang", output_bc, "-o", output_exe])
 
 
 def generate_execution(filename_ll, output_dot, png=True, xdot_open=False):
     """
-    Auxiliary function to view the result of the code generation process
+    Auxiliary function to view the result of the code generation process.
+
+    Generate dot file with:
+        opt --dot-cfg -analyze [input.ll] \\
+        mv .main.dot [output.dot]
+
+    Generate png with:
+        dot -Tpng [output.dot]
+
+    Open dot with xdot:
+        xdot [output.dot] 
 
     Parameters
     ----------
@@ -68,8 +99,11 @@ def generate_execution(filename_ll, output_dot, png=True, xdot_open=False):
 
     # Generate .dot file
     opt_cmd = ["opt", "--dot-cfg", "-analyze", filename_ll]
-    mv_cmd = ["mv", ".main.dot", output_dot]
-    if shell(opt_cmd) and shell(mv_cmd):
+
+    join_script = os.path.join(__dirname, "scripts", "join-dots.sh")
+    join_cmd = [join_script, output_dot]
+    
+    if shell(opt_cmd) and shell(join_cmd):
         # Generate png
         if png:
             with open(output_png, "wb") as redirect:
@@ -78,7 +112,7 @@ def generate_execution(filename_ll, output_dot, png=True, xdot_open=False):
         if xdot_open:
             shell(["xdot", output_dot])
 
-
+# Lexer report
 def lexer_print_complete(text):
     for tok in Lexer().tokenize(text):
         print(tok)
@@ -95,6 +129,7 @@ def lexer_report(text):
         print("{:^6} {:^9} {:<25} {}".format(tok.lineno, tok.lexpos, tok.type, tok.value))
 
 
+# Semantic Log
 def semantic_log(result):
     types_map = {
         T.INTEGER: "inteiro",
@@ -186,6 +221,7 @@ def semantic_log(result):
         print("\t", w.get_message(), sep="")
 
 
+# Commands
 @argh.arg("-m", "--mode", choices=["report", "type", "complete"])
 def lexer(filename, mode="report"):
     executor = lexer_report
@@ -198,6 +234,7 @@ def lexer(filename, mode="report"):
         text = file.read()
 
     executor(text)
+
 
 @argh.arg("-s", "--start", help="The begin expression to execute the parser [see BNF file]")
 @argh.arg("-o", "--output", help="Name of output file running on 'png' or 'dot' mode")
@@ -258,10 +295,16 @@ def semantic(filename, start="programa"):
 @argh.arg("--dot", help="Generate a dot file with the result of execution")
 @argh.arg("--png", help="Generate a dot file and a png with the result of execution")
 @argh.arg("--xdot-open", help="Generate a dot file and open the xdot viewer of the result of execution")
-def generate(filename, output="out.ll", outdot="out.dot", outexec="a.out", dot=False, png=False, xdot_open=False, binary=False):
+def generate(
+    filename,
+    output="out.ll", outdot="out.dot", outbc="out.bc", outexec="out.exe", outasm="a.asm",
+    dot=False, png=False, xdot_open=False, binary=False, assembly=False
+):
+    output_ast = outasm
+    output_bc = outbc
     output_dot = outdot
-    output_ll = output
     output_exe = outexec
+    output_ll = output
 
     lexer = Lexer()
     parser = Parser(lexer)
@@ -283,14 +326,18 @@ def generate(filename, output="out.ll", outdot="out.dot", outexec="a.out", dot=F
         ctx = result.program_ctx
         intermediate_code = build_intermediate_code(filename, ast, ctx)
 
-        with open(output_ll, "w") as file:
-            file.write(str(intermediate_code))
+        if assembly:
+            with open(output_ast, "w") as file:
+                file.write(intermediate_code.to_native_assembly())
+        else:
+            with open(output_ll, "w") as file:
+                file.write(str(intermediate_code))
         
         if dot or png or xdot_open:
             generate_execution(output_ll, output_dot, png, xdot_open)
         
         if binary:
-            generate_binary(output_ll, output_exe)
+            generate_binary(output_ll, output_bc, output_exe)
 
 
 parser = argh.ArghParser()

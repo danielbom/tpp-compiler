@@ -290,6 +290,7 @@ class SemanticChecker:
             return UnaryExpression(decl.operation, variable, variable.typing)
         elif decl.t == S.FUNCTION_CALL_LAZY:
             func = self.get_function(decl.name)
+            decl.parameters = [self.check_and_mark_expression(p, ctx) for p in decl.parameters]
             return decl.set_typing(None if func is None else func.return_type)
 
         elif decl.t == S.LITERAL_VARIABLE:
@@ -549,13 +550,13 @@ class SemanticChecker:
         elif decl.t == S.FUNCTION_CALL:
             return self.check_function_call(decl, ctx)
         elif decl.t == S.READ:
-            e = decl.expression
+            e = decl.variable
             e = self.check_and_mark_expression(e, ctx)
             ctx.variable_initialized(e.name)
-            decl.expression = e
+            decl.variable = e
             return decl
         elif decl.t == S.WRITE:
-            decl.expression = self.check_and_mark_expression(decl.expression, ctx)
+            decl.variable = self.check_and_mark_expression(decl.variable, ctx)
             return decl
         elif decl.t == S.RETURN_DECLARATION:
             return self.check_return(decl, ctx)

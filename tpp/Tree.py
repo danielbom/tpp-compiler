@@ -5,8 +5,8 @@ def generate_anytree_tree(root):
     def _rec(node, parent):
         anytree_node = Node(node.identifier, parent=parent)
         
-        if node._value:
-            value = Node(node.value, parent=anytree_node)
+        if node._value is not None:
+            Node(node._value, parent=anytree_node)
         else:
             for c in node.children:
                 _rec(c, anytree_node)
@@ -50,7 +50,7 @@ class Tree:
     
     def str_clojure(self, indentation = 0):
         spaces = "  " * indentation
-        if self.value: # literal
+        if self._value: # literal
             return f"\"{self.value}\""
         if self.children: # common
             return f"\n{spaces}({self.identifier} {' '.join(c.str_clojure(indentation + 1) for c in self.children)})"

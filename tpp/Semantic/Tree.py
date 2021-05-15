@@ -136,15 +136,15 @@ class AssignmentDeclaration:
 class Write:
     t = SemanticTypes.WRITE
 
-    def __init__(self, expression):
-        self.expression = expression
+    def __init__(self, variable):
+        self.variable = variable
 
 
 class Read:
     t = SemanticTypes.READ
 
-    def __init__(self, expression):
-        self.expression = expression
+    def __init__(self, variable):
+        self.variable = variable
 
 
 class Pointer:

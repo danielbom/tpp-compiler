@@ -90,7 +90,7 @@ class FunctionBuilder:
         self.program = program
 
         self.return_g = G.map_typing(decl.return_type)
-        self.return_name = function_name + ".ret"
+        self.return_name = function_name + ".return"
 
         self.entry_block = None
         self.exit_block = None
@@ -125,8 +125,21 @@ class FunctionBuilder:
                 if expr.second.typing == T.INTEGER:
                     return lambda t1, t2, n: self.entry_builder.icmp_signed(op, t1, t2, name=n)
             return lambda t1, t2, n: self.entry_builder.fcmp_signed(op, t1, t2, name=n)
-            
+          
+    def declare_variables(self, decl, ctx):
+        for v in decl.variables:
+            g = G.map_typing_with_indexes(v.typing, v.indexes)
+            variable = self.entry_builder.alloca(g.typing, name=v.name)
+            self.entry_builder.store(g.initializer, variable)
+            ctx.variables[v.name] = variable
+  
     # Solver
+    def solve_function_call(self, decl, ctx):
+        parameters = [self.solve_expression(p, ctx) for p in decl.parameters]
+        function = self.program.get_function(decl.name)
+        result = self.entry_builder.call(function, parameters, name=self.program.get_temp_name())
+        return result
+
     def solve_expression(self, expr, ctx):
         if expr.t == S.LITERAL_INTEGER:
             return G.const_int(expr.value)
@@ -144,18 +157,13 @@ class FunctionBuilder:
                 raise Exception("Unimplemented")
 
             return operator(temp1, temp2, self.program.get_temp_name())
-            
+        elif expr.t == S.FUNCTION_CALL:
+            return self.solve_function_call(expr, ctx)
+
         print("solve_expression:", expr.__class__.__name__)
         print()
         raise Exception("Unimplemented")
     
-    def declare_variables(self, decl, ctx):
-        for v in decl.variables:
-            g = G.map_typing_with_indexes(v.typing, v.indexes)
-            variable = self.entry_builder.alloca(g.typing, name=v.name)
-            self.entry_builder.store(g.initializer, variable)
-            ctx.variables[v.name] = variable
-
     def solve_assignment(self, decl, ctx):
         variable = ctx.get_variable(decl.variable.name)
         expression = self.solve_expression(decl.expression, ctx)
@@ -272,9 +280,26 @@ class FunctionBuilder:
             self.solve_if_else(decl, ctx)
         elif decl.t == S.ASSIGNMENT:
             self.solve_assignment(decl, ctx)
-        # elif decl.t == S.FUNCTION_CALL:
-        # elif decl.t == S.READ:
-        # elif decl.t == S.WRITE:
+        elif decl.t == S.FUNCTION_CALL:
+            return self.solve_function_call(decl, ctx)
+        elif decl.t == S.READ:
+            variable = ctx.get_variable(decl.variable.name)
+            if decl.variable.typing == T.INTEGER:
+                result = self.entry_builder.call(self.program.read_int, [])
+            elif decl.variable.typing == T.FLOAT:
+                result = self.entry_builder.call(self.program.read_float, [])
+            else:
+                raise Exception("Unimplemented")
+            self.entry_builder.store(result, variable)
+        elif decl.t == S.WRITE:
+            variable = ctx.get_variable(decl.variable.name)
+            temp = self.entry_builder.load(variable, name=self.program.get_temp_name())
+            if decl.variable.typing == T.INTEGER:
+                self.entry_builder.call(self.program.write_int, [temp])
+            elif decl.variable.typing == T.FLOAT:
+                self.entry_builder.call(self.program.write_float, [temp])
+            else:
+                raise Exception("Unimplemented")
         else:
             print(decl.__class__.__name__, ':', decl.t)
             print()
@@ -295,7 +320,10 @@ class FunctionBuilder:
 
     def _declare_parameters_as_variables(self, ctx):
         for p, a in zip(self.decl.parameters, self.function.args):
-            ctx.variables[p.name] = a
+            g = G.map_typing_with_indexes(p.typing, p.indexes)
+            variable = self.entry_builder.alloca(g.typing, name=p.name)
+            self.entry_builder.store(a, variable)
+            ctx.variables[p.name] = variable
 
     def _build_body(self, ctx):
         for decl in self.decl.body:
@@ -362,7 +390,10 @@ class ProgramBuilder:
             "end": f"end.{counter}",
             "early": f"early.{counter}"
         }
-    
+
+    def get_function(self, name):
+        return self.functions[name]
+
     def declare_function(self, name, decl):
         # Parameters typing
         parameters = decl.parameters
@@ -395,10 +426,10 @@ class ProgramBuilder:
 
     def declare_read_functions(self):
         function_typing_int = ir.FunctionType(G.INT, [])
-        self.write_int = ir.Function(self.module, function_typing_int, "__read_int")
+        self.read_int = ir.Function(self.module, function_typing_int, "__read_int")
 
         function_typing_float = ir.FunctionType(G.FLOAT, [])
-        self.write_float = ir.Function(self.module, function_typing_float, "__read_float")
+        self.read_float = ir.Function(self.module, function_typing_float, "__read_float")
 
     # Process
     def _startup_llvm(self):
