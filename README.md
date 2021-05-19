@@ -92,3 +92,4 @@ But, this was wrapped in a flag on generation command, so you can use only:
 - [Some code of internet](https://github.com/numba/llvmlite/blob/master/llvmlite/tests/test_ir.py)
 - [llvmlite Documentation](https://llvmlite.readthedocs.io/_/downloads/en/stable/pdf/)
 - [llvm generated code sample](https://github.com/rogerioag/llvm-gencode-samples)
+- [Working with string - llvm](https://stackoverflow.com/questions/58674264/llvmlite-hello-world-example-produces-wrong-output)

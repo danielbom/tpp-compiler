@@ -58,7 +58,7 @@ class G:
             if index.t == S.POINTER:
                 t = ir.PointerType(t)
             elif index.t == S.LITERAL_INTEGER:
-                t = ir.VectorType(t, index.value)
+                t = ir.ArrayType(t, index.value)
             else:
                 raise Exception("Unimplemented")
 
@@ -154,14 +154,27 @@ class FunctionBuilder:
         result = self.entry_builder.call(function, parameters, name=self.program.get_temp_name())
         return result
 
+    def get_variable(self, decl, ctx):
+        variable = ctx.get_variable(decl.name)
+
+        ptr = variable
+        for i in decl.indexes:
+            if i.t == S.LITERAL_INTEGER:
+                index = G.INT(i.value)
+            else:
+                index = self.solve_expression(i, ctx)
+                index = self.entry_builder.sext(index, G.INT, name=self.program.get_temp_name())
+            ptr = self.entry_builder.gep(ptr, [G.INT(0), index], name=self.program.get_temp_name())
+        return ptr
+
     def solve_expression(self, expr, ctx):
         if expr.t == S.LITERAL_INTEGER:
             return G.const_int(expr.value)
         elif expr.t == S.LITERAL_FLOAT:
             return G.const_float(expr.value)
         elif expr.t == S.LITERAL_VARIABLE:
-            variable = ctx.get_variable(expr.name)
-            return self.entry_builder.load(variable, name=self.program.get_temp_name())
+            ptr = self.get_variable(expr, ctx)
+            return self.entry_builder.load(ptr, name=self.program.get_temp_name())
         elif expr.t == S.BINARY_EXPRESSION:
             temp1 = self.solve_expression(expr.first, ctx)
             cast = self.implicit_cast(expr.typing, expr.first.typing)
@@ -210,7 +223,7 @@ class FunctionBuilder:
         return lambda x: x
     
     def solve_assignment(self, decl, ctx):
-        variable = ctx.get_variable(decl.variable.name)
+        variable = self.get_variable(decl.variable, ctx)
         expression = self.solve_expression(decl.expression, ctx)
 
         if decl.assignment == A.INITIALIZE:
@@ -500,7 +513,7 @@ class ProgramBuilder:
 
     def _declare_global_variables(self):
         for decl in self.program_ctx.variables.values():
-            g = G.map_typing(decl.typing)
+            g = G.map_typing_with_indexes(decl.typing, decl.indexes)
             v = ir.GlobalVariable(self.module, g.typing, decl.name)
             v.linkage = "common"
             v.align = 4
