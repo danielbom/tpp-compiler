@@ -24,9 +24,12 @@ class Tree:
     
     @property
     def value(self):
-        if self._value:
+        if self.is_leaf():
             return self._value
         raise TypeError(f"Can't access value for this node Tree! {self}")
+
+    def is_leaf(self):
+        return not self.children
 
     def update_identifier(self, identifier):
         return Tree(identifier, self.children, self._value)

@@ -266,8 +266,9 @@ class SemanticChecker:
             if mark_used:
                 var.used = True
 
-            # Update variable typing
+            # Update typing and indexes
             lit = decl.set_typing(var.typing)
+            lit.indexes = [self.check_and_mark_expression(i, ctx) for i in decl.indexes]
 
             # Update variable declaration on context
             return lit
@@ -450,7 +451,7 @@ class SemanticChecker:
                 )
 
             # Check and transform parameters
-            parameters = [self.check_expression(p, ctx) for p in decl.parameters]
+            parameters = [self.check_and_mark_expression(p, ctx) for p in decl.parameters]
 
             for p, dp in zip(parameters, func_decl.parameters):
                 if dp.typing != p.typing:
@@ -556,7 +557,7 @@ class SemanticChecker:
             decl.variable = e
             return decl
         elif decl.t == S.WRITE:
-            decl.variable = self.check_and_mark_expression(decl.variable, ctx)
+            decl.expression = self.check_and_mark_expression(decl.expression, ctx)
             return decl
         elif decl.t == S.RETURN_DECLARATION:
             return self.check_return(decl, ctx)

@@ -24,7 +24,7 @@ def semantic_preprocessor(root):
         "MAIOR": O.GRANTER,
         "MENOR": O.LESS,
         "MAIORIGUAL": O.GRANTER_EQUAL,
-        "MAIORIGUAL": O.LESS_EQUAL,
+        "MENORIGUAL": O.LESS_EQUAL,
         "IGUAL": O.EQUAL,
         "DIFERENTE": O.DIFFERENT,
         "NEGACAO": O.NEGATE,
@@ -52,8 +52,9 @@ def semantic_preprocessor(root):
             return_type = type_map[return_type.value]
             name = name.value
 
+            ps = parameters.children
             # parameters: [Tree] -> Gen<[Tree]> -> Gen<(string, LiteralVariable)> -> [Variable]
-            parameters = [] if len(parameters.children) == 1 else parameters.children
+            parameters = [] if len(ps) == 1 and ps[0].is_leaf() else ps
             parameters = (p.children for p in parameters)
             parameters = ((type_map[cs[0].value], rec(cs[1])) for cs in parameters)
             parameters = [Variable(t, v.name, v.indexes, True) for t, v in parameters]
@@ -177,7 +178,7 @@ def semantic_preprocessor(root):
 
             # Transform values
             name = name.value
-            parameters = [rec(p.children[0]) for p in parameters.children if p.children]
+            parameters = [rec(p) for p in parameters.children]
 
             # Construct declaration
             return FunctionCallLazy(name, parameters)

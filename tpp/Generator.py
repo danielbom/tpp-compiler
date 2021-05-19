@@ -106,25 +106,37 @@ class FunctionBuilder:
         return False 
 
     def get_binary_operator(self, expr):
-        if expr.operation == O.ADD:
-            return lambda t1, t2, n: self.entry_builder.add(t1, t2, name=n)
-        elif expr.operation == O.SUBTRACT:
-            return lambda t1, t2, n: self.entry_builder.sub(t1, t2, name=n)
-        elif expr.operation == O.MULTIPLY:
-            return lambda t1, t2, n: self.entry_builder.mul(t1, t2, name=n)
-        elif expr.operation == O.DIVIDE:
-            return lambda t1, t2, n: self.entry_builder.sdiv(t1, t2, name=n)
-        elif expr.operation == O.AND:
+        if expr.operation == O.AND:
             return lambda t1, t2, n: self.entry_builder.and_(t1, t2, name=n)
-        elif expr.operation == O.OR:
+        if expr.operation == O.OR:
             return lambda t1, t2, n: self.entry_builder.or_(t1, t2, name=n)
+
+        if expr.operation == O.ADD:
+            if expr.first.typing == T.INTEGER and expr.second.typing == T.INTEGER:
+                return lambda t1, t2, n: self.entry_builder.add(t1, t2, name=n)
+            elif expr.first.typing == T.FLOAT and expr.second.typing == T.FLOAT:
+                return lambda t1, t2, n: self.entry_builder.fadd(t1, t2, name=n)
+        if expr.operation == O.SUBTRACT:
+            if expr.first.typing == T.INTEGER and expr.second.typing == T.INTEGER:
+                return lambda t1, t2, n: self.entry_builder.sub(t1, t2, name=n)
+            elif expr.first.typing == T.FLOAT and expr.second.typing == T.FLOAT:
+                return lambda t1, t2, n: self.entry_builder.fsub(t1, t2, name=n)
+        if expr.operation == O.MULTIPLY:
+            if expr.first.typing == T.INTEGER and expr.second.typing == T.INTEGER:
+                return lambda t1, t2, n: self.entry_builder.mul(t1, t2, name=n)
+            elif expr.first.typing == T.FLOAT and expr.second.typing == T.FLOAT:
+                return lambda t1, t2, n: self.entry_builder.fmul(t1, t2, name=n)
+        if expr.operation == O.DIVIDE:
+            if expr.first.typing == T.INTEGER and expr.second.typing == T.INTEGER:
+                return lambda t1, t2, n: self.entry_builder.sdiv(t1, t2, name=n)
+            elif expr.first.typing == T.FLOAT and expr.second.typing == T.FLOAT:
+                return lambda t1, t2, n: self.entry_builder.fdiv(t1, t2, name=n)
 
         if expr.operation in G.COMPARE_SYMBOLS:
             op = G.COMPARE_SYMBOLS[expr.operation]
-            if expr.first.typing == T.INTEGER:
-                if expr.second.typing == T.INTEGER:
-                    return lambda t1, t2, n: self.entry_builder.icmp_signed(op, t1, t2, name=n)
-            return lambda t1, t2, n: self.entry_builder.fcmp_signed(op, t1, t2, name=n)
+            if expr.first.typing == T.INTEGER and expr.second.typing == T.INTEGER:
+                return lambda t1, t2, n: self.entry_builder.icmp_signed(op, t1, t2, name=n)
+            return lambda t1, t2, n: self.entry_builder.fcmp_ordered(op, t1, t2, name=n)
           
     def declare_variables(self, decl, ctx):
         for v in decl.variables:
@@ -135,7 +147,9 @@ class FunctionBuilder:
   
     # Solver
     def solve_function_call(self, decl, ctx):
-        parameters = [self.solve_expression(p, ctx) for p in decl.parameters]
+        # parameters: Gen<(Variable, LLVM)> -> [LLVM]
+        parameters = ((p, self.solve_expression(p, ctx)) for p in decl.parameters)
+        parameters = [expr for p, expr in parameters]
         function = self.program.get_function(decl.name)
         result = self.entry_builder.call(function, parameters, name=self.program.get_temp_name())
         return result
@@ -143,12 +157,20 @@ class FunctionBuilder:
     def solve_expression(self, expr, ctx):
         if expr.t == S.LITERAL_INTEGER:
             return G.const_int(expr.value)
+        elif expr.t == S.LITERAL_FLOAT:
+            return G.const_float(expr.value)
         elif expr.t == S.LITERAL_VARIABLE:
             variable = ctx.get_variable(expr.name)
             return self.entry_builder.load(variable, name=self.program.get_temp_name())
         elif expr.t == S.BINARY_EXPRESSION:
             temp1 = self.solve_expression(expr.first, ctx)
+            cast = self.implicit_cast(expr.typing, expr.first.typing)
+            temp1 = cast(temp1)
+
             temp2 = self.solve_expression(expr.second, ctx)
+            cast = self.implicit_cast(expr.typing, expr.second.typing)
+            temp2 = cast(temp2)
+
             operator = self.get_binary_operator(expr)
 
             if operator is None:
@@ -157,6 +179,13 @@ class FunctionBuilder:
                 raise Exception("Unimplemented")
 
             return operator(temp1, temp2, self.program.get_temp_name())
+        elif expr.t == S.UNARY_EXPRESSION:
+            if expr.operation == O.NEGATE:
+                temp = self.solve_expression(expr.variable, ctx)
+                return self.entry_builder.not_(temp, name=self.program.get_temp_name())
+            else:
+                print(expr.operation)
+                raise Exception("Unimplemented")
         elif expr.t == S.FUNCTION_CALL:
             return self.solve_function_call(expr, ctx)
 
@@ -164,11 +193,29 @@ class FunctionBuilder:
         print()
         raise Exception("Unimplemented")
     
+    def implicit_cast(self, typing1, typing2):
+        if typing1 != typing2:
+            if typing1 == T.INTEGER:
+                if typing2 == T.FLOAT:
+                    return lambda x: self.entry_builder.fptosi(x, G.INT, name=self.program.get_temp_name())
+                else:
+                    raise Exception("Unimplemented")
+            elif typing1 == T.FLOAT:
+                if typing2 == T.INTEGER:
+                    return lambda x: self.entry_builder.sitofp(x, G.FLOAT, name=self.program.get_temp_name())
+                else:
+                    raise Exception("Unimplemented")
+            else:
+                raise Exception("Unimplemented")
+        return lambda x: x
+    
     def solve_assignment(self, decl, ctx):
         variable = ctx.get_variable(decl.variable.name)
         expression = self.solve_expression(decl.expression, ctx)
 
         if decl.assignment == A.INITIALIZE:
+            cast = self.implicit_cast(decl.variable.typing, decl.expression.typing)
+            expression = cast(expression)
             self.entry_builder.store(expression, variable)
         else:
             if decl.assignment == A.ADD:
@@ -292,11 +339,11 @@ class FunctionBuilder:
                 raise Exception("Unimplemented")
             self.entry_builder.store(result, variable)
         elif decl.t == S.WRITE:
-            variable = ctx.get_variable(decl.variable.name)
-            temp = self.entry_builder.load(variable, name=self.program.get_temp_name())
-            if decl.variable.typing == T.INTEGER:
+            temp = self.solve_expression(decl.expression, ctx)
+
+            if decl.expression.typing == T.INTEGER:
                 self.entry_builder.call(self.program.write_int, [temp])
-            elif decl.variable.typing == T.FLOAT:
+            elif decl.expression.typing == T.FLOAT:
                 self.entry_builder.call(self.program.write_float, [temp])
             else:
                 raise Exception("Unimplemented")
@@ -344,7 +391,7 @@ class FunctionBuilder:
         self._declare_entry_and_exit_blocks_and_builders()
         self._declare_return_value()
 
-        ctx = GeneratorContext(self.function_name)
+        ctx = GeneratorContext(self.function_name, self.program.global_ctx)
         self._declare_parameters_as_variables(ctx)
         self._build_body(ctx)
         
@@ -364,6 +411,7 @@ class ProgramBuilder:
         self.if_counter = 1
         self.repeat_counter = 1
         self.function_counter = 1
+        self.global_ctx = GeneratorContext("__global")
     
     # Utils
     def get_temp_name(self):
@@ -457,6 +505,7 @@ class ProgramBuilder:
             v.linkage = "common"
             v.align = 4
             v.initializer = g.initializer
+            self.global_ctx.variables[decl.name] = v
     
     def _declare_functions(self):
         MAIN_NAME = "principal"

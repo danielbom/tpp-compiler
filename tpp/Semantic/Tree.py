@@ -136,8 +136,8 @@ class AssignmentDeclaration:
 class Write:
     t = SemanticTypes.WRITE
 
-    def __init__(self, variable):
-        self.variable = variable
+    def __init__(self, expression):
+        self.expression = expression
 
 
 class Read:
