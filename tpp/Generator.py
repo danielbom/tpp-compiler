@@ -145,15 +145,6 @@ class FunctionBuilder:
             self.entry_builder.store(g.initializer, variable)
             ctx.variables[v.name] = variable
   
-    # Solver
-    def solve_function_call(self, decl, ctx):
-        # parameters: Gen<(Variable, LLVM)> -> [LLVM]
-        parameters = ((p, self.solve_expression(p, ctx)) for p in decl.parameters)
-        parameters = [expr for p, expr in parameters]
-        function = self.program.get_function(decl.name)
-        result = self.entry_builder.call(function, parameters, name=self.program.get_temp_name())
-        return result
-
     def get_variable(self, decl, ctx):
         variable = ctx.get_variable(decl.name)
 
@@ -166,6 +157,31 @@ class FunctionBuilder:
                 index = self.entry_builder.sext(index, G.INT, name=self.program.get_temp_name())
             ptr = self.entry_builder.gep(ptr, [G.INT(0), index], name=self.program.get_temp_name())
         return ptr
+
+    def implicit_cast(self, typing1, typing2):
+        if typing1 != typing2:
+            if typing1 == T.INTEGER:
+                if typing2 == T.FLOAT:
+                    return lambda x: self.entry_builder.fptosi(x, G.INT, name=self.program.get_temp_name())
+                else:
+                    raise Exception("Unimplemented")
+            elif typing1 == T.FLOAT:
+                if typing2 == T.INTEGER:
+                    return lambda x: self.entry_builder.sitofp(x, G.FLOAT, name=self.program.get_temp_name())
+                else:
+                    raise Exception("Unimplemented")
+            else:
+                raise Exception("Unimplemented")
+        return lambda x: x
+    
+    # Solver
+    def solve_function_call(self, decl, ctx):
+        # parameters: Gen<(Variable, LLVM)> -> [LLVM]
+        parameters = ((p, self.solve_expression(p, ctx)) for p in decl.parameters)
+        parameters = [expr for p, expr in parameters]
+        function = self.program.get_function(decl.name)
+        result = self.entry_builder.call(function, parameters, name=self.program.get_temp_name())
+        return result
 
     def solve_expression(self, expr, ctx):
         if expr.t == S.LITERAL_INTEGER:
@@ -205,22 +221,6 @@ class FunctionBuilder:
         print("solve_expression:", expr.__class__.__name__)
         print()
         raise Exception("Unimplemented")
-    
-    def implicit_cast(self, typing1, typing2):
-        if typing1 != typing2:
-            if typing1 == T.INTEGER:
-                if typing2 == T.FLOAT:
-                    return lambda x: self.entry_builder.fptosi(x, G.INT, name=self.program.get_temp_name())
-                else:
-                    raise Exception("Unimplemented")
-            elif typing1 == T.FLOAT:
-                if typing2 == T.INTEGER:
-                    return lambda x: self.entry_builder.sitofp(x, G.FLOAT, name=self.program.get_temp_name())
-                else:
-                    raise Exception("Unimplemented")
-            else:
-                raise Exception("Unimplemented")
-        return lambda x: x
     
     def solve_assignment(self, decl, ctx):
         variable = self.get_variable(decl.variable, ctx)
